@@ -59,14 +59,15 @@ export const styles = {
     boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
   },
 
-  menuButton: {
-    border: "none",
-    background: "transparent",
+  logoutButton: {
+    backgroundColor: "#ffffff",
     color: "#444",
-    fontSize: "24px",
+    border: "1px solid #d8dde3",
+    borderRadius: "6px",
+    padding: "10px 16px",
+    fontSize: "14px",
+    fontWeight: 600,
     cursor: "pointer",
-    lineHeight: 1,
-    padding: "4px 8px",
   },
 
   tabHeader: {

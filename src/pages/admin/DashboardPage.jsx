@@ -13,6 +13,13 @@ const COLORS = {
   muted: "#616371",
 };
 
+function formatPercentage(value) {
+  return `${new Intl.NumberFormat("tr-TR", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(Number(value ?? 0))}%`;
+}
+
 function DashboardPage() {
   const navigate = useNavigate();
   const { surveyId } = useParams();
@@ -40,7 +47,7 @@ function DashboardPage() {
     return (
       <div style={styles.pageWrapper}>
         <div style={styles.panel}>
-          <div style={styles.statusBox}>Yükleniyor...</div>
+          <div style={styles.statusBox}>Yukleniyor...</div>
         </div>
       </div>
     );
@@ -62,21 +69,24 @@ function DashboardPage() {
     return (
       <div style={styles.pageWrapper}>
         <div style={styles.panel}>
-          <div style={styles.statusBox}>Dashboard bulunamadı.</div>
+          <div style={styles.statusBox}>Dashboard bulunamadi.</div>
         </div>
       </div>
     );
   }
 
   const cards = [
-    { title: "Hedef Kişi Sayısı", value: dashboard.targetCount },
-    { title: "Ulaşılan Kişi", value: dashboard.reachedCount },
-    { title: "Anketi Açan", value: dashboard.openedCount },
+    { title: "Hedef Kisi Sayisi", value: dashboard.targetCount },
+    { title: "Ulasilan Kisi", value: dashboard.reachedCount },
+    { title: "Anketi Acan", value: dashboard.openedCount },
     { title: "Anketi Tamamlayan", value: dashboard.submittedCount },
-    { title: "Açılma Oranı", value: `${dashboard.openRate ?? 0}%` },
-    { title: "Cevaplanma Oranı", value: `${dashboard.responseRate ?? 0}%` },
-    { title: "Açmayan Kişi", value: dashboard.notOpenedCount },
-    { title: "Tamamlamayan Kişi", value: dashboard.notSubmittedCount },
+    { title: "Acilma Orani", value: formatPercentage(dashboard.openRate) },
+    {
+      title: "Cevaplanma Orani",
+      value: formatPercentage(dashboard.responseRate),
+    },
+    { title: "Acmayan Kisi", value: dashboard.notOpenedCount },
+    { title: "Tamamlamayan Kisi", value: dashboard.notSubmittedCount },
   ];
 
   return (
@@ -85,7 +95,7 @@ function DashboardPage() {
         <div style={styles.header}>
           <div style={styles.brandArea}>
             <DocumentIcon />
-            <span style={styles.brandText}>SURVEYPRO ADMIN PANELİ</span>
+            <span style={styles.brandText}>SURVEYPRO ADMIN PANELI</span>
           </div>
 
           <div style={styles.headerRight}>
@@ -93,10 +103,10 @@ function DashboardPage() {
               style={styles.topButton}
               onClick={() => navigate("/admin/surveys")}
             >
-              Anket Listesine Dön
+              Anket Listesine Don
             </button>
-            <button style={styles.menuButton} aria-label="Menü">
-              ⋮
+            <button style={styles.menuButton} aria-label="Menu">
+              ...
             </button>
           </div>
         </div>
@@ -119,7 +129,7 @@ function DashboardPage() {
               </div>
             </div>
 
-            <div style={styles.sectionHeader}>Dashboard Özeti</div>
+            <div style={styles.sectionHeader}>Dashboard Ozeti</div>
 
             <div style={styles.grid}>
               {cards.map((card, index) => (
