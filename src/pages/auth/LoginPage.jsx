@@ -4,10 +4,12 @@ import { getApiErrorMessage } from "../../api/axiosInstance";
 import { login } from "../../api/authApi";
 import surveyProLogo from "../../assets/surveypro-logo.png";
 
+const FONT_FAMILY = '"Poppins", sans-serif';
+
 const COLORS = {
   primary: "#0A4CAA",
   primaryDark: "#083E8B",
-  page: "#F7F5F2",
+  page: "#FFFFFF",
   card: "#FFFFFF",
   text: "#1F2A37",
   border: "#C9D2DF",
@@ -88,7 +90,13 @@ function EyeIcon({ open }) {
           stroke="currentColor"
           strokeWidth="1.5"
         />
-        <circle cx="12" cy="12" r="2.7" stroke="currentColor" strokeWidth="1.5" />
+        <circle
+          cx="12"
+          cy="12"
+          r="2.7"
+          stroke="currentColor"
+          strokeWidth="1.5"
+        />
       </svg>
     );
   }
@@ -200,7 +208,7 @@ function LoginPage() {
       navigate("/admin/surveys", { replace: true });
     } catch (err) {
       console.error(err);
-      setMessage(getApiErrorMessage(err, "E-posta veya sifre hatali."));
+      setMessage("E-posta veya şifre hatalı");
     } finally {
       setLoading(false);
     }
@@ -329,28 +337,14 @@ const styles = {
     position: "relative",
     minHeight: "100vh",
     overflow: "hidden",
-    background:
-      "linear-gradient(135deg, #fcfbfa 0%, #f5f2ee 52%, #f7f6f4 100%)",
+    background: "#FFFFFF",
+    fontFamily: FONT_FAMILY,
   },
   backgroundGlowTop: {
-    position: "absolute",
-    top: "-140px",
-    left: "-80px",
-    width: "380px",
-    height: "380px",
-    borderRadius: "50%",
-    background: "radial-gradient(circle, rgba(255, 166, 77, 0.16) 0%, rgba(255, 166, 77, 0) 72%)",
-    pointerEvents: "none",
+    display: "none",
   },
   backgroundGlowBottom: {
-    position: "absolute",
-    right: "-120px",
-    bottom: "-180px",
-    width: "420px",
-    height: "420px",
-    borderRadius: "50%",
-    background: "radial-gradient(circle, rgba(10, 76, 170, 0.14) 0%, rgba(10, 76, 170, 0) 74%)",
-    pointerEvents: "none",
+    display: "none",
   },
   layout: {
     position: "relative",
@@ -379,13 +373,13 @@ const styles = {
     paddingTop: "24px",
   },
   brandLogo: {
-    width: "min(100%, 420px)",
+    width: "min(100%, 360px)",
     height: "auto",
     objectFit: "contain",
     filter: "drop-shadow(0 10px 14px rgba(10, 76, 170, 0.12))",
   },
   brandLogoCompact: {
-    width: "min(78vw, 320px)",
+    width: "min(68vw, 260px)",
   },
   formPanel: {
     display: "flex",
@@ -393,9 +387,10 @@ const styles = {
   },
   card: {
     width: "100%",
-    maxWidth: "430px",
+    maxWidth: "480px",
+    minHeight: "560px",
     backgroundColor: COLORS.card,
-    borderRadius: "30px",
+    borderRadius: "20px",
     padding: "46px 34px 34px",
     boxShadow: COLORS.shadow,
     border: "1px solid rgba(255, 255, 255, 0.8)",
@@ -409,10 +404,11 @@ const styles = {
     margin: "0 0 34px",
     textAlign: "center",
     color: COLORS.primaryDark,
-    fontSize: "clamp(2rem, 4vw, 3rem)",
+    fontSize: "clamp(1.7rem, 2.2vw, 2.5rem)",
     fontWeight: 800,
     letterSpacing: "-0.04em",
     lineHeight: 1,
+    fontFamily: FONT_FAMILY,
   },
   fieldGroup: {
     marginBottom: "22px",
@@ -424,6 +420,7 @@ const styles = {
     fontSize: "14px",
     fontWeight: 600,
     color: COLORS.text,
+    fontFamily: FONT_FAMILY,
   },
   inputWrapper: {
     display: "flex",
@@ -452,6 +449,7 @@ const styles = {
     fontSize: "14px",
     color: COLORS.text,
     backgroundColor: "transparent",
+    fontFamily: FONT_FAMILY,
   },
   eyeButton: {
     border: "none",
@@ -475,6 +473,7 @@ const styles = {
     fontSize: "12px",
     fontWeight: 500,
     cursor: "pointer",
+    fontFamily: FONT_FAMILY,
   },
   loginButton: {
     width: "100%",
@@ -488,6 +487,7 @@ const styles = {
     fontWeight: 700,
     cursor: "pointer",
     boxShadow: COLORS.shadowSoft,
+    fontFamily: FONT_FAMILY,
   },
   loginButtonDisabled: {
     opacity: 0.8,
@@ -498,6 +498,7 @@ const styles = {
     fontSize: "14px",
     color: "#B42318",
     textAlign: "center",
+    fontFamily: FONT_FAMILY,
   },
 };
 
