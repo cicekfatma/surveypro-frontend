@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getApiErrorMessage } from "../../api/axiosInstance";
 import { createSurvey } from "../../api/surveyApi";
+import { clearAuthSession } from "../../auth/session";
 import surveyProLogo from "../../assets/surveypro-logo.png";
 
 const FONT_FAMILY = '"Poppins", sans-serif';
@@ -17,6 +18,25 @@ const COLORS = {
   muted: "#808392",
   shadow: "0 8px 24px rgba(15, 23, 42, 0.06)",
 };
+
+function LogoutIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={styles.logoutIcon}
+    >
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <path d="M16 17l5-5-5-5" />
+      <path d="M21 12H9" />
+    </svg>
+  );
+}
 
 function SurveyCreatePage() {
   const navigate = useNavigate();
@@ -48,6 +68,11 @@ function SurveyCreatePage() {
   ]);
 
   const [message, setMessage] = useState("");
+
+  const handleLogout = () => {
+    clearAuthSession();
+    navigate("/login", { replace: true });
+  };
 
   const getQuestionMediaError = (question) => {
     const mediaUrl = typeof question.mediaUrl === "string"
@@ -325,8 +350,14 @@ function SurveyCreatePage() {
             >
               Anket Listesine Don
             </button>
-            <button style={styles.menuButton} aria-label="Menu">
-              &#8942;
+            <button
+              type="button"
+              style={styles.logoutButton}
+              onClick={handleLogout}
+              aria-label="Cikis Yap"
+              title="Cikis Yap"
+            >
+              <LogoutIcon />
             </button>
           </div>
         </div>
@@ -706,34 +737,36 @@ const styles = {
     borderRadius: "999px",
   },
   topButton: {
-    backgroundColor: COLORS.orange,
+    backgroundColor: COLORS.primary,
     color: "#FFFFFF",
     border: "none",
-    borderRadius: "7px",
-    padding: "0 16px",
+    borderRadius: "999px",
+    minHeight: "42px",
+    padding: "0 20px",
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
-    height: "36px",
-    fontSize: "12px",
+    height: "42px",
+    fontSize: "13px",
     fontWeight: 600,
     cursor: "pointer",
     lineHeight: 1,
   },
-  menuButton: {
+  logoutButton: {
+    backgroundColor: "transparent",
+    color: COLORS.primary,
     border: "none",
-    background: "transparent",
-    color: COLORS.text,
-    fontSize: "22px",
+    width: "24px",
+    height: "24px",
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
-    cursor: "pointer",
-    lineHeight: 1,
-    height: "36px",
-    width: "24px",
     padding: 0,
-    fontWeight: 700,
+    cursor: "pointer",
+  },
+  logoutIcon: {
+    width: "20px",
+    height: "20px",
   },
   contentArea: {
     backgroundColor: COLORS.background,

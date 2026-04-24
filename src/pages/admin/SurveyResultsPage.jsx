@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getApiErrorMessage } from "../../api/axiosInstance";
 import { getSurveyResults } from "../../api/surveyApi";
+import { clearAuthSession } from "../../auth/session";
 import surveyProLogo from "../../assets/surveypro-logo.png";
 
 const COLORS = {
@@ -15,12 +16,36 @@ const COLORS = {
 };
 const FONT_FAMILY = '"Poppins", sans-serif';
 
+function LogoutIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={styles.logoutIcon}
+    >
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <path d="M16 17l5-5-5-5" />
+      <path d="M21 12H9" />
+    </svg>
+  );
+}
+
 function SurveyResultsPage() {
   const navigate = useNavigate();
   const { surveyId } = useParams();
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  const handleLogout = () => {
+    clearAuthSession();
+    navigate("/login", { replace: true });
+  };
 
   useEffect(() => {
     const fetchSurveyResults = async () => {
@@ -86,8 +111,14 @@ function SurveyResultsPage() {
             >
               Anket Listesine Dön
             </button>
-            <button style={styles.menuButton} aria-label="Menü">
-              ⋮
+            <button
+              type="button"
+              style={styles.logoutButton}
+              onClick={handleLogout}
+              aria-label="Cikis Yap"
+              title="Cikis Yap"
+            >
+              <LogoutIcon />
             </button>
           </div>
         </div>
@@ -205,30 +236,6 @@ function SurveyResultsPage() {
   );
 }
 
-function DocumentIcon() {
-  return (
-    <svg
-      width="28"
-      height="28"
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      style={{ flexShrink: 0 }}
-    >
-      <path
-        d="M7 3H14L19 8V21H7C5.89543 21 5 20.1046 5 19V5C5 3.89543 5.89543 3 7 3Z"
-        stroke="#5B7FA3"
-        strokeWidth="1.8"
-        fill="white"
-      />
-      <path d="M14 3V8H19" stroke="#5B7FA3" strokeWidth="1.8" />
-      <path d="M8 12H16" stroke="#5B7FA3" strokeWidth="1.6" strokeLinecap="round" />
-      <path d="M8 15H16" stroke="#5B7FA3" strokeWidth="1.6" strokeLinecap="round" />
-      <path d="M8 18H13" stroke="#5B7FA3" strokeWidth="1.6" strokeLinecap="round" />
-    </svg>
-  );
-}
-
 const styles = {
   pageWrapper: {
     minHeight: "100vh",
@@ -277,24 +284,36 @@ const styles = {
   },
 
   topButton: {
-    backgroundColor: COLORS.orange,
+    backgroundColor: COLORS.primary,
     color: "#FFFFFF",
     border: "none",
-    borderRadius: "7px",
-    padding: "11px 16px",
+    borderRadius: "999px",
+    minHeight: "42px",
+    padding: "0 20px",
     fontSize: "13px",
     fontWeight: 600,
     cursor: "pointer",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
   },
 
-  menuButton: {
+  logoutButton: {
+    backgroundColor: "transparent",
+    color: COLORS.primary,
     border: "none",
-    background: "transparent",
-    color: COLORS.text,
-    fontSize: "24px",
+    width: "24px",
+    height: "24px",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "0",
     cursor: "pointer",
-    lineHeight: 1,
-    padding: "4px 8px",
+  },
+
+  logoutIcon: {
+    width: "20px",
+    height: "20px",
   },
 
   tabHeader: {

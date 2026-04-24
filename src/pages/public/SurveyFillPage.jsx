@@ -1,14 +1,18 @@
 import { useEffect, useState } from "react";
 import { getApiErrorMessage } from "../../api/axiosInstance";
 import { getPublicSurvey, submitPublicSurvey } from "../../api/surveyApi";
+import surveyProLogo from "../../assets/surveypro-logo.png";
+
+const FONT_FAMILY = '"Poppins", sans-serif';
 
 const COLORS = {
   primary: "#023E8A",
   orange: "#F48220",
-  background: "#E5F0FF",
+  background: "#F3F3F4",
   text: "#28283A",
   white: "#FFFFFF",
   border: "#D9E3F0",
+  shadow: "0 8px 24px rgba(15, 23, 42, 0.06)",
 };
 
 function getYoutubeEmbedUrl(url) {
@@ -191,13 +195,28 @@ function SurveyFillPage({ publicKey, onBack }) {
 
   return (
     <div style={styles.pageWrapper}>
-      <div style={styles.header}>
-        <div style={styles.brandText}>SURVEYPRO</div>
-        {onBack && (
-          <button style={styles.topButton} onClick={onBack}>
-            Geri Don
-          </button>
-        )}
+      <div style={styles.panel}>
+        <div style={styles.header}>
+          <div style={styles.brandArea}>
+            <img src={surveyProLogo} alt="SurveyPro logo" style={styles.logo} />
+          </div>
+
+          <div style={styles.headerRight}>
+            {onBack && (
+              <button style={styles.topButton} onClick={onBack}>
+                Geri Don
+              </button>
+            )}
+            <button style={styles.menuButton} aria-label="Menu">
+              &#8942;
+            </button>
+          </div>
+        </div>
+
+        <div style={styles.tabHeader}>
+          <div style={styles.tabText}>Public Test</div>
+          <div style={styles.tabUnderline} />
+        </div>
       </div>
 
       <div style={styles.contentArea}>
@@ -384,77 +403,164 @@ const styles = {
   pageWrapper: {
     minHeight: "100vh",
     backgroundColor: COLORS.background,
-    fontFamily: "Arial, sans-serif",
+    fontFamily: FONT_FAMILY,
+  },
+  panel: {
+    width: "100%",
+    backgroundColor: COLORS.background,
+    overflow: "hidden",
   },
   header: {
-    height: "84px",
-    backgroundColor: COLORS.white,
-    borderBottom: `1px solid ${COLORS.border}`,
+    height: "60px",
+    backgroundColor: "#FFFFFF",
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    padding: "0 24px",
+    padding: "0 18px 0 36px",
+    boxSizing: "border-box",
   },
-  brandText: {
-    fontSize: "20px",
-    fontWeight: 800,
-    color: COLORS.primary,
+  brandArea: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "flex-start",
+    height: "100%",
+    gap: "14px",
+  },
+  logo: {
+    width: "154px",
+    height: "38px",
+    objectFit: "contain",
+    display: "block",
+  },
+  headerRight: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    marginLeft: "auto",
+    gap: "10px",
+  },
+  tabHeader: {
+    backgroundColor: COLORS.background,
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    height: "36px",
+    paddingBottom: "4px",
+    boxSizing: "border-box",
+  },
+  tabText: {
+    color: COLORS.orange,
+    fontSize: "13px",
+    fontWeight: 600,
+    lineHeight: 1,
+    fontFamily: FONT_FAMILY,
+  },
+  tabUnderline: {
+    marginTop: "5px",
+    width: "64px",
+    height: "2px",
+    backgroundColor: COLORS.orange,
+    borderRadius: "999px",
   },
   topButton: {
-    border: "none",
-    borderRadius: "10px",
     backgroundColor: COLORS.orange,
-    color: "#fff",
-    padding: "10px 14px",
-    fontWeight: 700,
+    color: "#FFFFFF",
+    border: "none",
+    borderRadius: "7px",
+    padding: "0 16px",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    height: "36px",
+    fontSize: "12px",
+    fontWeight: 600,
     cursor: "pointer",
+    lineHeight: 1,
+    fontFamily: FONT_FAMILY,
+  },
+  menuButton: {
+    border: "none",
+    background: "transparent",
+    color: COLORS.text,
+    fontSize: "22px",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    cursor: "pointer",
+    lineHeight: 1,
+    height: "36px",
+    width: "24px",
+    padding: 0,
+    fontWeight: 700,
   },
   contentArea: {
-    padding: "24px 16px 40px",
+    backgroundColor: COLORS.background,
+    minHeight: "calc(100vh - 96px)",
+    padding: "18px 20px 60px",
   },
   container: {
-    maxWidth: "820px",
+    maxWidth: "700px",
     margin: "0 auto",
   },
   mainCard: {
     backgroundColor: COLORS.white,
-    border: `1px solid ${COLORS.border}`,
-    borderRadius: "16px",
-    padding: "20px",
-    marginBottom: "16px",
+    border: "1px solid #E4E4E7",
+    borderRadius: "8px",
+    padding: "18px 24px 16px",
+    marginBottom: "12px",
+    boxShadow: COLORS.shadow,
   },
   title: {
     margin: "0 0 8px",
     color: COLORS.primary,
+    fontSize: "28px",
+    lineHeight: 1.2,
+    letterSpacing: "-0.02em",
+    fontFamily: FONT_FAMILY,
   },
   description: {
     margin: 0,
     color: COLORS.text,
+    fontSize: "14px",
+    lineHeight: 1.6,
+    fontFamily: FONT_FAMILY,
   },
   label: {
     display: "block",
-    marginBottom: "8px",
+    marginBottom: "12px",
     fontWeight: 700,
     color: COLORS.text,
+    fontSize: "14px",
+    fontFamily: FONT_FAMILY,
   },
   input: {
     width: "100%",
-    border: `1px solid ${COLORS.border}`,
-    borderRadius: "12px",
-    padding: "12px 14px",
+    border: "none",
+    borderBottom: "1px solid #D6D6DA",
+    borderRadius: 0,
+    padding: "10px 0 8px",
     fontSize: "14px",
+    color: COLORS.text,
+    outline: "none",
+    backgroundColor: "transparent",
+    fontFamily: FONT_FAMILY,
   },
   questionCard: {
     backgroundColor: COLORS.white,
-    border: `1px solid ${COLORS.border}`,
-    borderRadius: "16px",
-    padding: "20px",
-    marginBottom: "16px",
+    border: "1px solid #E4E4E7",
+    borderRadius: "8px",
+    padding: "18px 24px 16px",
+    marginBottom: "12px",
+    boxShadow: COLORS.shadow,
   },
   questionTitle: {
     marginTop: 0,
     marginBottom: "14px",
     color: COLORS.text,
+    fontSize: "18px",
+    fontWeight: 700,
+    fontFamily: FONT_FAMILY,
   },
   textarea: {
     width: "100%",
@@ -463,6 +569,7 @@ const styles = {
     borderRadius: "12px",
     padding: "12px 14px",
     resize: "vertical",
+    fontFamily: FONT_FAMILY,
   },
   optionGroup: {
     display: "grid",
@@ -473,6 +580,7 @@ const styles = {
     alignItems: "center",
     gap: "10px",
     color: COLORS.text,
+    fontFamily: FONT_FAMILY,
   },
   ratingGroup: {
     display: "flex",
@@ -487,6 +595,7 @@ const styles = {
     padding: "10px 14px",
     cursor: "pointer",
     fontWeight: 700,
+    fontFamily: FONT_FAMILY,
   },
   ratingButtonActive: {
     backgroundColor: COLORS.orange,
@@ -523,6 +632,7 @@ const styles = {
     border: `1px solid ${COLORS.border}`,
     borderRadius: "12px",
     padding: "12px 14px",
+    fontFamily: FONT_FAMILY,
   },
   submitArea: {
     display: "flex",
@@ -537,12 +647,14 @@ const styles = {
     padding: "14px 22px",
     fontWeight: 700,
     cursor: "pointer",
+    fontFamily: FONT_FAMILY,
   },
   message: {
     marginTop: "16px",
     textAlign: "center",
     fontWeight: 700,
     color: COLORS.primary,
+    fontFamily: FONT_FAMILY,
   },
 };
 
