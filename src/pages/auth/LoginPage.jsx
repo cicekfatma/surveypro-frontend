@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { getApiErrorMessage } from "../../api/axiosInstance";
+import { useLocation, useNavigate } from "react-router-dom";
 import { login } from "../../api/authApi";
+import {
+  AUTH_REDIRECT_REASONS,
+  saveAuthSession,
+} from "../../auth/session";
 import surveyProLogo from "../../assets/surveypro-logo.png";
 
 const FONT_FAMILY = '"Poppins", sans-serif';
@@ -137,8 +140,25 @@ function EyeIcon({ open }) {
   );
 }
 
+function getLoginMessage(reason) {
+  if (reason === AUTH_REDIRECT_REASONS.expired) {
+    return "Oturum suresi doldu. Lutfen tekrar giris yapin.";
+  }
+
+  if (reason === AUTH_REDIRECT_REASONS.forbidden) {
+    return "Bu sayfaya erisim yetkiniz yok.";
+  }
+
+  if (reason === AUTH_REDIRECT_REASONS.invalid) {
+    return "Oturum bilgisi gecersiz. Lutfen tekrar giris yapin.";
+  }
+
+  return "";
+}
+
 function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -192,6 +212,11 @@ function LoginPage() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    setMessage(getLoginMessage(searchParams.get("reason")));
+  }, [location.search]);
+
   const handleLogin = async () => {
     if (loading) return;
 
@@ -201,14 +226,16 @@ function LoginPage() {
     try {
       const data = await login({ email, password });
 
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("email", data.email);
-      localStorage.setItem("role", data.role);
+      saveAuthSession({
+        token: data.token,
+        email: data.email,
+        role: data.role,
+      });
 
       navigate("/admin/surveys", { replace: true });
     } catch (err) {
       console.error(err);
-      setMessage("E-posta veya şifre hatalı");
+      setMessage("E-posta veya sifre hatali.");
     } finally {
       setLoading(false);
     }

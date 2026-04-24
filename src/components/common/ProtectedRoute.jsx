@@ -1,11 +1,24 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
+import {
+  AUTH_REDIRECT_REASONS,
+  clearAuthSession,
+  getSessionValidation,
+} from "../../auth/session";
 
 function ProtectedRoute() {
   const location = useLocation();
-  const token = localStorage.getItem("token");
+  const validation = getSessionValidation();
 
-  if (!token) {
-    return <Navigate to="/login" replace state={{ from: location }} />;
+  if (!validation.isValid) {
+    clearAuthSession();
+
+    return (
+      <Navigate
+        to={`/login?reason=${validation.reason || AUTH_REDIRECT_REASONS.invalid}`}
+        replace
+        state={{ from: location }}
+      />
+    );
   }
 
   return <Outlet />;

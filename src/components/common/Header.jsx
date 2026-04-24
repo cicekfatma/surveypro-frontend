@@ -1,14 +1,13 @@
 import { useNavigate } from "react-router-dom";
 import surveyProLogo from "../../assets/surveypro-logo.png";
+import { clearAuthSession } from "../../auth/session";
 import { styles } from "../../styles/surveyListStyles";
 
 function Header({ onCreateSurvey }) {
   const navigate = useNavigate();
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("email");
-    localStorage.removeItem("role");
+    clearAuthSession();
     navigate("/login", { replace: true });
   };
 
