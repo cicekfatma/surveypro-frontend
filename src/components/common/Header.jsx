@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import DocumentIcon from "./icons/DocumentIcon";
+import surveyProLogo from "../../assets/surveypro-logo.png";
 import { styles } from "../../styles/surveyListStyles";
 
 function Header({ onCreateSurvey }) {
@@ -15,8 +15,7 @@ function Header({ onCreateSurvey }) {
   return (
     <div style={styles.header}>
       <div style={styles.brandArea}>
-        <DocumentIcon />
-        <span style={styles.brandText}>SURVEYPRO ADMIN PANELI</span>
+        <img src={surveyProLogo} alt="SurveyPro logo" style={styles.logo} />
       </div>
 
       <div style={styles.headerRight}>

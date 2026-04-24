@@ -2,16 +2,18 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getApiErrorMessage } from "../../api/axiosInstance";
 import { getSurveyResults } from "../../api/surveyApi";
+import surveyProLogo from "../../assets/surveypro-logo.png";
 
 const COLORS = {
   primary: "#023E8A",
   orange: "#F48220",
-  background: "#E5F0FF",
+  background: "#F3F3F4",
   text: "#28283A",
   border: "#E4E4E7",
   white: "#FFFFFF",
   muted: "#616371",
 };
+const FONT_FAMILY = '"Poppins", sans-serif';
 
 function SurveyResultsPage() {
   const navigate = useNavigate();
@@ -73,7 +75,7 @@ function SurveyResultsPage() {
       <div style={styles.panel}>
         <div style={styles.header}>
           <div style={styles.brandArea}>
-            <DocumentIcon />
+            <img src={surveyProLogo} alt="SurveyPro logo" style={styles.logo} />
             <span style={styles.brandText}>SURVEYPRO ADMIN PANELİ</span>
           </div>
 
@@ -231,25 +233,24 @@ const styles = {
   pageWrapper: {
     minHeight: "100vh",
     width: "100%",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#F3F3F4",
     margin: 0,
-    fontFamily: "Arial, sans-serif",
+    fontFamily: FONT_FAMILY,
   },
 
   panel: {
     minHeight: "100vh",
     width: "100%",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#F3F3F4",
   },
 
   header: {
-    height: "102px",
+    height: "60px",
     backgroundColor: "#FFFFFF",
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
     padding: "0 40px",
-    borderBottom: "1px solid #E4E4E7",
   },
 
   brandArea: {
@@ -259,10 +260,14 @@ const styles = {
   },
 
   brandText: {
-    fontSize: "15px",
-    fontWeight: 500,
-    color: COLORS.text,
-    letterSpacing: "0.2px",
+    display: "none",
+  },
+
+  logo: {
+    width: "154px",
+    height: "38px",
+    objectFit: "contain",
+    display: "block",
   },
 
   headerRight: {
@@ -293,32 +298,33 @@ const styles = {
   },
 
   tabHeader: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#F3F3F4",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    height: "74px",
-    borderBottom: "1px solid #E4E4E7",
+    height: "36px",
   },
 
   tabText: {
     color: COLORS.orange,
-    fontSize: "16px",
-    fontWeight: 700,
+    fontSize: "13px",
+    fontWeight: 600,
+    lineHeight: 1,
+    fontFamily: FONT_FAMILY,
   },
 
   tabUnderline: {
-    marginTop: "6px",
-    width: "140px",
-    height: "3px",
+    marginTop: "5px",
+    width: "64px",
+    height: "2px",
     backgroundColor: COLORS.orange,
     borderRadius: "999px",
   },
 
   contentArea: {
     backgroundColor: COLORS.background,
-    minHeight: "calc(100vh - 176px)",
+    minHeight: "calc(100vh - 96px)",
     padding: "24px 20px 50px",
   },
 

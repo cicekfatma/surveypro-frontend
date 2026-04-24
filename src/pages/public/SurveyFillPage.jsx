@@ -11,6 +11,35 @@ const COLORS = {
   border: "#D9E3F0",
 };
 
+function getYoutubeEmbedUrl(url) {
+  if (!url) return "";
+
+  try {
+    const parsedUrl = new URL(url);
+    const hostname = parsedUrl.hostname.replace("www.", "");
+
+    if (hostname === "youtube.com" || hostname === "m.youtube.com") {
+      const videoId = parsedUrl.searchParams.get("v");
+      return videoId ? `https://www.youtube.com/embed/${videoId}` : "";
+    }
+
+    if (hostname === "youtu.be") {
+      const videoId = parsedUrl.pathname.replace("/", "");
+      return videoId ? `https://www.youtube.com/embed/${videoId}` : "";
+    }
+  } catch {
+    return "";
+  }
+
+  return "";
+}
+
+function isDirectVideoUrl(url) {
+  if (!url) return false;
+
+  return /\.(mp4|webm|ogg|mov)(\?.*)?$/i.test(url);
+}
+
 function SurveyFillPage({ publicKey, onBack }) {
   const [survey, setSurvey] = useState(null);
   const [respondentToken, setRespondentToken] = useState("");
@@ -201,6 +230,41 @@ function SurveyFillPage({ publicKey, onBack }) {
                   alt="question media"
                   style={styles.image}
                 />
+              )}
+
+              {question.mediaType === "VIDEO" && question.mediaUrl && (
+                <>
+                  {isDirectVideoUrl(question.mediaUrl) && (
+                    <video
+                      controls
+                      preload="metadata"
+                      style={styles.video}
+                      src={question.mediaUrl}
+                    >
+                      Tarayiciniz video etiketini desteklemiyor.
+                    </video>
+                  )}
+
+                  {!isDirectVideoUrl(question.mediaUrl) &&
+                    getYoutubeEmbedUrl(question.mediaUrl) && (
+                      <iframe
+                        src={getYoutubeEmbedUrl(question.mediaUrl)}
+                        title={`question-video-${question.id}`}
+                        style={styles.videoFrame}
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        referrerPolicy="strict-origin-when-cross-origin"
+                        allowFullScreen
+                      />
+                    )}
+
+                  {!isDirectVideoUrl(question.mediaUrl) &&
+                    !getYoutubeEmbedUrl(question.mediaUrl) && (
+                      <p style={styles.mediaFallbackText}>
+                        Bu video URL tipi desteklenmiyor. Direkt video dosyasi
+                        ya da YouTube embedlenebilir link kullanin.
+                      </p>
+                    )}
+                </>
               )}
 
               {question.questionType === "TEXT" && (
@@ -435,6 +499,30 @@ const styles = {
     objectFit: "cover",
     borderRadius: "12px",
     marginBottom: "14px",
+  },
+  video: {
+    width: "100%",
+    maxHeight: "360px",
+    borderRadius: "12px",
+    marginBottom: "14px",
+    backgroundColor: "#000000",
+  },
+  videoFrame: {
+    width: "100%",
+    minHeight: "360px",
+    border: "none",
+    borderRadius: "12px",
+    marginBottom: "14px",
+    backgroundColor: "#000000",
+  },
+  mediaFallbackText: {
+    marginTop: 0,
+    marginBottom: "14px",
+    color: COLORS.text,
+    backgroundColor: "#F8FAFC",
+    border: `1px solid ${COLORS.border}`,
+    borderRadius: "12px",
+    padding: "12px 14px",
   },
   submitArea: {
     display: "flex",

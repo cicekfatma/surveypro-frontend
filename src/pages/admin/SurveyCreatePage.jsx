@@ -25,6 +25,8 @@ function SurveyCreatePage() {
   const [targetCount, setTargetCount] = useState(100);
   const [requestKey, setRequestKey] = useState(() => crypto.randomUUID());
   const [saving, setSaving] = useState(false);
+  const [selectedQuestionId, setSelectedQuestionId] = useState(1);
+  const [questionErrors, setQuestionErrors] = useState({});
 
   const [questions, setQuestions] = useState([
     {
@@ -47,19 +49,55 @@ function SurveyCreatePage() {
 
   const [message, setMessage] = useState("");
 
+  const getQuestionMediaError = (question) => {
+    const mediaUrl = typeof question.mediaUrl === "string"
+      ? question.mediaUrl.trim()
+      : "";
+
+    if (question.mediaType === "IMAGE" || question.mediaType === "VIDEO") {
+      if (!mediaUrl) {
+        return "Medya URL alani zorunludur.";
+      }
+
+      if (
+        !mediaUrl.startsWith("http://") &&
+        !mediaUrl.startsWith("https://")
+      ) {
+        return "Medya URL http:// veya https:// ile baslamalidir.";
+      }
+    }
+
+    if (question.mediaType === "NONE" && mediaUrl) {
+      return 'Medya tipi "NONE" iken medya URL bos olmalidir.';
+    }
+
+    return "";
+  };
+
+  const buildQuestionErrors = (questionList) =>
+    questionList.reduce((errors, question) => {
+      const error = getQuestionMediaError(question);
+
+      if (error) {
+        errors[question.orderNo] = error;
+      }
+
+      return errors;
+    }, {});
+
   const addQuestion = () => {
-    setQuestions([
-      ...questions,
-      {
-        questionText: "",
-        questionType: "TEXT",
-        orderNo: questions.length + 1,
-        isRequired: true,
-        mediaType: "NONE",
-        mediaUrl: null,
-        options: [],
-      },
-    ]);
+    const nextQuestion = {
+      questionText: "",
+      questionType: "TEXT",
+      orderNo: questions.length + 1,
+      isRequired: true,
+      mediaType: "NONE",
+      mediaUrl: null,
+      options: [],
+    };
+
+    setQuestions([...questions, nextQuestion]);
+    setSelectedQuestionId(nextQuestion.orderNo);
   };
 
   const updateQuestionField = (index, field, value) => {
@@ -86,6 +124,7 @@ function SurveyCreatePage() {
     }
 
     setQuestions(updated);
+    setQuestionErrors(buildQuestionErrors(updated));
   };
 
   const addOption = (questionIndex) => {
@@ -97,21 +136,103 @@ function SurveyCreatePage() {
       mediaUrl: null,
     });
     setQuestions(updated);
+    setQuestionErrors(buildQuestionErrors(updated));
   };
 
   const updateOptionField = (questionIndex, optionIndex, value) => {
     const updated = [...questions];
     updated[questionIndex].options[optionIndex].optionText = value;
     setQuestions(updated);
+    setQuestionErrors(buildQuestionErrors(updated));
   };
 
   const removeQuestion = (questionIndex) => {
+    const removedQuestion = questions[questionIndex];
     const updated = questions.filter((_, index) => index !== questionIndex);
     const reordered = updated.map((question, index) => ({
       ...question,
       orderNo: index + 1,
     }));
+
     setQuestions(reordered);
+    setQuestionErrors(buildQuestionErrors(reordered));
+
+    if (reordered.length === 0) {
+      setSelectedQuestionId(null);
+      return;
+    }
+
+    if (selectedQuestionId === removedQuestion.orderNo) {
+      setSelectedQuestionId(
+        reordered[Math.min(questionIndex, reordered.length - 1)].orderNo
+      );
+      return;
+    }
+
+    if (selectedQuestionId > removedQuestion.orderNo) {
+      setSelectedQuestionId(selectedQuestionId - 1);
+    }
+  };
+
+  const assignMediaTypeToSelectedQuestion = (mediaType) => {
+    if (selectedQuestionId == null) return;
+
+    setQuestions((currentQuestions) =>
+      {
+        const updatedQuestions = currentQuestions.map((question) =>
+        question.orderNo === selectedQuestionId
+          ? {
+              ...question,
+              mediaType,
+              mediaUrl:
+                mediaType === "NONE"
+                  ? null
+                  : (question.mediaUrl ?? ""),
+            }
+          : question
+      );
+
+        setQuestionErrors(buildQuestionErrors(updatedQuestions));
+        return updatedQuestions;
+      }
+    );
+  };
+
+  const updateQuestionMediaUrl = (questionId, mediaUrl) => {
+    setQuestions((currentQuestions) =>
+      {
+        const updatedQuestions = currentQuestions.map((question) =>
+        question.orderNo === questionId
+          ? {
+              ...question,
+              mediaUrl,
+            }
+          : question
+      );
+
+        setQuestionErrors(buildQuestionErrors(updatedQuestions));
+        return updatedQuestions;
+      }
+    );
+  };
+
+  const clearQuestionMedia = (questionId) => {
+    setQuestions((currentQuestions) =>
+      {
+        const updatedQuestions = currentQuestions.map((question) =>
+        question.orderNo === questionId
+          ? {
+              ...question,
+              mediaType: "NONE",
+              mediaUrl: null,
+            }
+          : question
+      );
+
+        setQuestionErrors(buildQuestionErrors(updatedQuestions));
+        return updatedQuestions;
+      }
+    );
   };
 
   const resetForm = () => {
@@ -136,14 +257,35 @@ function SurveyCreatePage() {
         ],
       },
     ]);
+    setQuestionErrors({});
+    setSelectedQuestionId(1);
     setRequestKey(crypto.randomUUID());
   };
 
   const handleSubmit = async () => {
     if (saving) return;
 
-    setSaving(true);
     setMessage("");
+    const nextQuestionErrors = buildQuestionErrors(questions);
+
+    setQuestionErrors(nextQuestionErrors);
+
+    if (Object.keys(nextQuestionErrors).length > 0) {
+      setMessage("Medya alanlarindaki hatalari duzeltmeden kaydedemezsiniz.");
+      return;
+    }
+
+    setSaving(true);
+
+    const normalizedQuestions = questions.map((question) => ({
+      ...question,
+      mediaUrl:
+        question.mediaType === "NONE"
+          ? null
+          : (typeof question.mediaUrl === "string"
+              ? question.mediaUrl.trim()
+              : question.mediaUrl),
+    }));
 
     const body = {
       ownerUserId: 1,
@@ -153,7 +295,7 @@ function SurveyCreatePage() {
       themeColor: COLORS.orange,
       targetCount: Number(targetCount),
       isActive: true,
-      questions,
+      questions: normalizedQuestions,
     };
 
     try {
@@ -229,7 +371,16 @@ function SurveyCreatePage() {
             </div>
 
             {questions.map((question, questionIndex) => (
-              <div key={questionIndex} style={styles.questionCard}>
+              <div
+                key={questionIndex}
+                style={{
+                  ...styles.questionCard,
+                  ...(selectedQuestionId === question.orderNo
+                    ? styles.selectedQuestionCard
+                    : null),
+                }}
+                onClick={() => setSelectedQuestionId(question.orderNo)}
+              >
                 <div style={styles.questionTopRow}>
                   <div style={styles.questionInputArea}>
                     <input
@@ -294,12 +445,55 @@ function SurveyCreatePage() {
                   </div>
                 )}
 
+                {(question.mediaType === "IMAGE" ||
+                  question.mediaType === "VIDEO") && (
+                  <div style={styles.mediaFieldArea}>
+                    <div style={styles.mediaFieldHeader}>
+                      <label style={styles.mediaFieldLabel}>
+                        {question.mediaType === "IMAGE"
+                          ? "Resim URL"
+                          : "Video URL"}
+                      </label>
+                      <button
+                        type="button"
+                        style={styles.clearMediaButton}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          clearQuestionMedia(question.orderNo);
+                        }}
+                      >
+                        Medyayi Kaldir
+                      </button>
+                    </div>
+                    <input
+                      style={styles.mediaUrlInput}
+                      type="url"
+                      placeholder={
+                        question.mediaType === "IMAGE"
+                          ? "https://ornek.com/resim.jpg"
+                          : "https://ornek.com/video.mp4"
+                      }
+                      value={question.mediaUrl ?? ""}
+                      onChange={(e) =>
+                        updateQuestionMediaUrl(
+                          question.orderNo,
+                          e.target.value
+                        )
+                      }
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </div>
+                )}
+
                 <div style={styles.questionBottomRow}>
                   <div style={styles.requiredBox}>
                     <button
                       type="button"
                       style={styles.deleteButton}
-                      onClick={() => removeQuestion(questionIndex)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeQuestion(questionIndex);
+                      }}
                       disabled={questions.length === 1}
                       title="Soruyu Sil"
                       aria-label="Soruyu Sil"
@@ -378,24 +572,49 @@ function SurveyCreatePage() {
                     </label>
                   </div>
                 </div>
+
+                {questionErrors[question.orderNo] && (
+                  <p style={styles.questionErrorText}>
+                    {questionErrors[question.orderNo]}
+                  </p>
+                )}
               </div>
             ))}
 
             <div style={styles.floatingTools}>
-              <button style={styles.toolButton} onClick={addQuestion} title="Soru Ekle">
+              <button
+                type="button"
+                style={styles.toolButton}
+                onClick={addQuestion}
+                title="Soru Ekle"
+              >
                 +
               </button>
               <button
-                style={{ ...styles.toolButton, ...styles.imageToolButton }}
+                type="button"
+                style={{
+                  ...styles.toolButton,
+                  ...styles.imageToolButton,
+                  ...(selectedQuestionId == null ? styles.disabledToolButton : null),
+                }}
+                onClick={() => assignMediaTypeToSelectedQuestion("IMAGE")}
                 title="Resim"
                 aria-label="Resim"
+                disabled={selectedQuestionId == null}
               >
                 □
               </button>
               <button
-                style={{ ...styles.toolButton, ...styles.videoToolButton }}
+                type="button"
+                style={{
+                  ...styles.toolButton,
+                  ...styles.videoToolButton,
+                  ...(selectedQuestionId == null ? styles.disabledToolButton : null),
+                }}
+                onClick={() => assignMediaTypeToSelectedQuestion("VIDEO")}
                 title="Video"
                 aria-label="Video"
+                disabled={selectedQuestionId == null}
               >
                 ▶
               </button>
@@ -578,6 +797,12 @@ const styles = {
     borderLeft: `4px solid ${COLORS.orange}`,
     position: "relative",
     boxShadow: COLORS.shadow,
+    cursor: "pointer",
+    transition: "border-color 0.2s ease, box-shadow 0.2s ease",
+  },
+  selectedQuestionCard: {
+    borderColor: COLORS.orange,
+    boxShadow: "0 10px 28px rgba(244, 130, 32, 0.18)",
   },
   questionTopRow: {
     display: "flex",
@@ -634,6 +859,44 @@ const styles = {
     fontWeight: 600,
     cursor: "pointer",
     marginTop: "8px",
+  },
+  mediaFieldArea: {
+    marginTop: "18px",
+    paddingTop: "14px",
+    borderTop: "1px solid #E4E4E7",
+  },
+  mediaFieldHeader: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "12px",
+    marginBottom: "10px",
+  },
+  mediaFieldLabel: {
+    fontSize: "14px",
+    fontWeight: 700,
+    color: COLORS.text,
+  },
+  mediaUrlInput: {
+    width: "100%",
+    border: "1px solid #D6D6DA",
+    borderRadius: "6px",
+    padding: "10px 12px",
+    fontSize: "14px",
+    color: COLORS.text,
+    outline: "none",
+    backgroundColor: "#FFFFFF",
+    boxSizing: "border-box",
+    fontFamily: FONT_FAMILY,
+  },
+  clearMediaButton: {
+    border: "none",
+    backgroundColor: "transparent",
+    color: COLORS.orangeDark,
+    fontSize: "13px",
+    fontWeight: 700,
+    cursor: "pointer",
+    padding: 0,
   },
   questionBottomRow: {
     marginTop: "10px",
@@ -722,6 +985,10 @@ const styles = {
     justifyContent: "center",
     padding: 0,
   },
+  disabledToolButton: {
+    opacity: 0.45,
+    cursor: "not-allowed",
+  },
   imageToolButton: {
     fontSize: 0,
     color: "transparent",
@@ -760,6 +1027,13 @@ const styles = {
     textAlign: "center",
     fontWeight: 700,
     color: COLORS.primary,
+  },
+  questionErrorText: {
+    marginTop: "10px",
+    marginBottom: 0,
+    color: "#B42318",
+    fontSize: "13px",
+    fontWeight: 600,
   },
 };
 

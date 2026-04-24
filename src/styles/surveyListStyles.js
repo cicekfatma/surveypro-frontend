@@ -1,13 +1,18 @@
 const ORANGE = " #F48220";
 const BABY_BLUE = "#FFEFC7";
+const FONT_FAMILY = '"Poppins", sans-serif';
+const COLORS = {
+  ORANGE: "#F48220",
+};
 
 export const styles = {
     pageWrapper: {
         minHeight: "100vh",
         width: "100%",
-        backgroundColor: "#ffffff",
+        backgroundColor: "#F3F3F4",
         padding: "0",
         margin: "0",
+        fontFamily: FONT_FAMILY,
       },
       panel: {
         minHeight: "100vh",
@@ -15,17 +20,16 @@ export const styles = {
         borderRadius: "0",
         overflow: "hidden",
         border: "none",
-        backgroundColor: "#ffffff",
+        backgroundColor: "#F3F3F4",
       },
 
       header: {
-        height: "102px",
+        height: "60px",
         backgroundColor: "#ffffff",
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
         padding: "0 40px",
-        borderBottom: "1px solid #d8dde3",
       },
 
   brandArea: {
@@ -34,11 +38,11 @@ export const styles = {
     gap: "14px",
   },
 
-  brandText: {
-    fontSize: "15px",
-    fontWeight: 500,
-    color: "#2f2f2f",
-    letterSpacing: "0.2px",
+  logo: {
+    width: "154px",
+    height: "38px",
+    objectFit: "contain",
+    display: "block",
   },
 
   headerRight: {
@@ -71,36 +75,39 @@ export const styles = {
   },
 
   tabHeader: {
-    backgroundColor: "#ffffff",
+    backgroundColor: "#F3F3F4",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    justifyContent: "center",
-    height: "70px",
-    borderBottom: "1px solid #d8dde3",
+    justifyContent: "flex-end",
+    height: "36px",
+    paddingBottom: "4px",
+    boxSizing: "border-box",
   },
 
-  tabText: {
-    color: ORANGE,
-    fontSize: "16px",
-    fontWeight: 700,
+ tabText: {
+    color: COLORS.ORANGE,
+    fontSize: "13px",
+    fontWeight: 600,
+    lineHeight: 1,
+    fontFamily: FONT_FAMILY,
   },
 
   tabUnderline: {
-    marginTop: "6px",
-    width: "110px",
-    height: "3px",
-    backgroundColor: ORANGE,
+    marginTop: "5px",
+    width: "64px",
+    height: "2px",
+    backgroundColor: COLORS.ORANGE,
     borderRadius: "999px",
   },
 
   contentArea: {
-    backgroundColor: "#E2ECF5",
-    minHeight: "calc(100vh - 172px)",
+    backgroundColor: "#F3F3F4",
+    minHeight: "calc(100vh - 96px)",
     padding: "34px 20px 60px",
   },
   listWrapper: {
-    maxWidth: "720px",
+    maxWidth: "620px",
     margin: "0 auto",
     display: "flex",
     flexDirection: "column",
@@ -110,8 +117,8 @@ export const styles = {
   surveyCard: {
     backgroundColor: "#ffffff",
     borderRadius: "8px",
-    padding: "22px 20px",
-    minHeight: "62px",
+    padding: "16px 18px",
+    minHeight: "48px",
     boxShadow: "0 1px 3px rgba(16, 24, 40, 0.08)",
     border: "1px solid #d9dee5",
   },
