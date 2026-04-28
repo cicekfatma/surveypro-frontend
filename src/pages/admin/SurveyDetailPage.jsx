@@ -107,6 +107,12 @@ function SurveyDetailPage() {
           <div style={styles.headerRight}>
             <button
               style={styles.topButton}
+              onClick={() => navigate(`/admin/surveys/${surveyId}/edit`)}
+            >
+              Anketi Duzenle
+            </button>
+            <button
+              style={styles.topButton}
               onClick={() => navigate("/admin/surveys")}
             >
               Anket Listesine Dön

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { getApiErrorMessage } from "../../api/axiosInstance";
 import Header from "../../components/common/Header";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 import TabBar from "../../components/common/TabBar";
@@ -12,15 +13,37 @@ function SurveyListPage() {
   const [surveys, setSurveys] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [filters, setFilters] = useState({
+    isActive: "",
+    createdFrom: "",
+    createdTo: "",
+  });
 
-  const fetchSurveys = async () => {
+  const fetchSurveys = async (nextFilters = filters) => {
     try {
       setLoading(true);
       setError("");
-      const surveyList = await getSurveys();
+      const params = {
+        page: 0,
+        size: 50,
+      };
+
+      if (nextFilters.isActive !== "") {
+        params.isActive = nextFilters.isActive === "true";
+      }
+
+      if (nextFilters.createdFrom) {
+        params.createdFrom = nextFilters.createdFrom;
+      }
+
+      if (nextFilters.createdTo) {
+        params.createdTo = nextFilters.createdTo;
+      }
+
+      const surveyList = await getSurveys(params);
       setSurveys(surveyList);
     } catch (err) {
-      setError(err.message || "Bir hata olustu");
+      setError(getApiErrorMessage(err, "Bir hata olustu"));
     } finally {
       setLoading(false);
     }
@@ -29,6 +52,28 @@ function SurveyListPage() {
   useEffect(() => {
     fetchSurveys();
   }, []);
+
+  const handleFilterChange = (field, value) => {
+    setFilters((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  };
+
+  const handleApplyFilters = () => {
+    fetchSurveys(filters);
+  };
+
+  const handleResetFilters = () => {
+    const nextFilters = {
+      isActive: "",
+      createdFrom: "",
+      createdTo: "",
+    };
+
+    setFilters(nextFilters);
+    fetchSurveys(nextFilters);
+  };
 
   if (loading) {
     return (
@@ -58,6 +103,61 @@ function SurveyListPage() {
 
         <div style={styles.contentArea}>
           <div style={styles.listWrapper}>
+            <div style={styles.filterCard}>
+              <div style={styles.filterGrid}>
+                <div style={styles.filterField}>
+                  <label style={styles.filterLabel}>Durum</label>
+                  <select
+                    style={styles.filterInput}
+                    value={filters.isActive}
+                    onChange={(e) =>
+                      handleFilterChange("isActive", e.target.value)
+                    }
+                  >
+                    <option value="">Tum Anketler</option>
+                    <option value="true">Aktif</option>
+                    <option value="false">Pasif</option>
+                  </select>
+                </div>
+
+                <div style={styles.filterField}>
+                  <label style={styles.filterLabel}>Olusturma Baslangic</label>
+                  <input
+                    style={styles.filterInput}
+                    type="date"
+                    value={filters.createdFrom}
+                    onChange={(e) =>
+                      handleFilterChange("createdFrom", e.target.value)
+                    }
+                  />
+                </div>
+
+                <div style={styles.filterField}>
+                  <label style={styles.filterLabel}>Olusturma Bitis</label>
+                  <input
+                    style={styles.filterInput}
+                    type="date"
+                    value={filters.createdTo}
+                    onChange={(e) =>
+                      handleFilterChange("createdTo", e.target.value)
+                    }
+                  />
+                </div>
+              </div>
+
+              <div style={styles.filterActions}>
+                <button style={styles.filterButton} onClick={handleApplyFilters}>
+                  Filtrele
+                </button>
+                <button
+                  style={styles.filterResetButton}
+                  onClick={handleResetFilters}
+                >
+                  Temizle
+                </button>
+              </div>
+            </div>
+
             {surveys.length === 0 ? (
               <div style={styles.emptyCard}>Anket bulunamadi.</div>
             ) : (

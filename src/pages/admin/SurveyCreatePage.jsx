@@ -1,7 +1,11 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { getApiErrorMessage } from "../../api/axiosInstance";
-import { createSurvey } from "../../api/surveyApi";
+import {
+  createSurvey,
+  getSurveyDetail,
+  updateSurvey,
+} from "../../api/surveyApi";
 import { clearAuthSession } from "../../auth/session";
 import surveyProLogo from "../../assets/surveypro-logo.png";
 
@@ -18,6 +22,8 @@ const COLORS = {
   muted: "#808392",
   shadow: "0 8px 24px rgba(15, 23, 42, 0.06)",
 };
+
+const CREATE_SURVEY_REQUEST_KEY_STORAGE = "surveyCreateRequestKey";
 
 function LogoutIcon() {
   return (
@@ -38,41 +44,153 @@ function LogoutIcon() {
   );
 }
 
+function OptionIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      style={styles.optionIcon}
+    >
+      <circle cx="12" cy="12" r="6" />
+    </svg>
+  );
+}
+
+function createEmptyQuestion(orderNo = 1) {
+  return {
+    questionText: "",
+    questionType: "MULTI_CHOICE",
+    orderNo,
+    isRequired: true,
+    mediaType: "NONE",
+    mediaUrl: null,
+    options: [
+      {
+        optionText: "",
+        orderNo: 1,
+        mediaType: "NONE",
+        mediaUrl: null,
+      },
+    ],
+  };
+}
+
+function getOrCreateStoredRequestKey() {
+  const storedRequestKey = sessionStorage.getItem(
+    CREATE_SURVEY_REQUEST_KEY_STORAGE
+  );
+
+  if (storedRequestKey) {
+    return storedRequestKey;
+  }
+
+  const nextRequestKey = crypto.randomUUID();
+  sessionStorage.setItem(CREATE_SURVEY_REQUEST_KEY_STORAGE, nextRequestKey);
+  return nextRequestKey;
+}
+
+function createNextStoredRequestKey() {
+  const nextRequestKey = crypto.randomUUID();
+  sessionStorage.setItem(CREATE_SURVEY_REQUEST_KEY_STORAGE, nextRequestKey);
+  return nextRequestKey;
+}
+
+function clearStoredRequestKey() {
+  sessionStorage.removeItem(CREATE_SURVEY_REQUEST_KEY_STORAGE);
+}
+
 function SurveyCreatePage() {
   const navigate = useNavigate();
+  const { surveyId } = useParams();
+  const isEditMode = Boolean(surveyId);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [targetCount, setTargetCount] = useState(100);
-  const [requestKey, setRequestKey] = useState(() => crypto.randomUUID());
+  const [requestKey, setRequestKey] = useState(() =>
+    isEditMode ? crypto.randomUUID() : getOrCreateStoredRequestKey()
+  );
+  const [isActive, setIsActive] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [selectedQuestionId, setSelectedQuestionId] = useState(1);
   const [questionErrors, setQuestionErrors] = useState({});
 
-  const [questions, setQuestions] = useState([
-    {
-      questionText: "",
-      questionType: "MULTI_CHOICE",
-      orderNo: 1,
-      isRequired: true,
-      mediaType: "NONE",
-      mediaUrl: null,
-      options: [
-        {
-          optionText: "",
-          orderNo: 1,
-          mediaType: "NONE",
-          mediaUrl: null,
-        },
-      ],
-    },
-  ]);
+  const [questions, setQuestions] = useState([createEmptyQuestion()]);
 
   const [message, setMessage] = useState("");
 
   const handleLogout = () => {
+    if (!isEditMode) {
+      clearStoredRequestKey();
+    }
     clearAuthSession();
     navigate("/login", { replace: true });
   };
+
+  useEffect(() => {
+    if (!isEditMode) {
+      return;
+    }
+
+    let isCancelled = false;
+
+    const fetchSurvey = async () => {
+      try {
+        setLoading(true);
+        setMessage("");
+        const data = await getSurveyDetail(surveyId);
+
+        if (isCancelled) {
+          return;
+        }
+
+        setTitle(data.title || "");
+        setDescription(data.description || "");
+        setTargetCount(data.targetCount ?? 100);
+        setIsActive(data.isActive ?? true);
+
+        const nextQuestions =
+          data.questions?.length > 0
+            ? data.questions.map((question) => ({
+                ...question,
+                mediaType: question.mediaType || "NONE",
+                mediaUrl: question.mediaUrl ?? null,
+                options:
+                  question.questionType === "MULTI_CHOICE"
+                    ? (question.options || []).map((option, index) => ({
+                        ...option,
+                        orderNo: option.orderNo ?? index + 1,
+                        mediaType: option.mediaType || "NONE",
+                        mediaUrl: option.mediaUrl ?? null,
+                      }))
+                    : question.options || [],
+              }))
+            : [createEmptyQuestion()];
+
+        setQuestions(nextQuestions);
+        setSelectedQuestionId(nextQuestions[0]?.orderNo ?? null);
+        setQuestionErrors(buildQuestionErrors(nextQuestions));
+      } catch (err) {
+        console.error(err);
+        if (!isCancelled) {
+          setMessage(getApiErrorMessage(err, "Anket detayi alinamadi."));
+        }
+      } finally {
+        if (!isCancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchSurvey();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [isEditMode, surveyId]);
 
   const getQuestionMediaError = (question) => {
     const mediaUrl = typeof question.mediaUrl === "string"
@@ -171,6 +289,20 @@ function SurveyCreatePage() {
     setQuestionErrors(buildQuestionErrors(updated));
   };
 
+  const removeOption = (questionIndex, optionIndex) => {
+    const updated = [...questions];
+    const remainingOptions = updated[questionIndex].options
+      .filter((_, index) => index !== optionIndex)
+      .map((option, index) => ({
+        ...option,
+        orderNo: index + 1,
+      }));
+
+    updated[questionIndex].options = remainingOptions;
+    setQuestions(updated);
+    setQuestionErrors(buildQuestionErrors(updated));
+  };
+
   const removeQuestion = (questionIndex) => {
     const removedQuestion = questions[questionIndex];
     const updated = questions.filter((_, index) => index !== questionIndex);
@@ -264,27 +396,11 @@ function SurveyCreatePage() {
     setTitle("");
     setDescription("");
     setTargetCount(100);
-    setQuestions([
-      {
-        questionText: "",
-        questionType: "MULTI_CHOICE",
-        orderNo: 1,
-        isRequired: true,
-        mediaType: "NONE",
-        mediaUrl: null,
-        options: [
-          {
-            optionText: "",
-            orderNo: 1,
-            mediaType: "NONE",
-            mediaUrl: null,
-          },
-        ],
-      },
-    ]);
+    setIsActive(true);
+    setQuestions([createEmptyQuestion()]);
     setQuestionErrors({});
     setSelectedQuestionId(1);
-    setRequestKey(crypto.randomUUID());
+    setRequestKey(createNextStoredRequestKey());
   };
 
   const handleSubmit = async () => {
@@ -313,20 +429,27 @@ function SurveyCreatePage() {
     }));
 
     const body = {
-      ownerUserId: 1,
-      requestKey,
       title,
       description,
       themeColor: COLORS.orange,
       targetCount: Number(targetCount),
-      isActive: true,
+      isActive,
       questions: normalizedQuestions,
     };
 
     try {
-      await createSurvey(body);
-      setMessage("Anket basariyla olusturuldu.");
-      resetForm();
+      if (isEditMode) {
+        await updateSurvey(surveyId, body);
+        setMessage("Anket basariyla guncellendi.");
+      } else {
+        await createSurvey({
+          ownerUserId: 1,
+          requestKey,
+          ...body,
+        });
+        setMessage("Anket basariyla olusturuldu.");
+        resetForm();
+      }
     } catch (err) {
       console.error(err);
       setMessage(getApiErrorMessage(err, "Hata olustu."));
@@ -334,6 +457,16 @@ function SurveyCreatePage() {
       setSaving(false);
     }
   };
+
+  if (loading) {
+    return (
+      <div style={styles.pageWrapper}>
+        <div style={styles.panel}>
+          <div style={styles.statusBox}>Yukleniyor...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={styles.pageWrapper}>
@@ -346,7 +479,12 @@ function SurveyCreatePage() {
           <div style={styles.headerRight}>
             <button
               style={styles.topButton}
-              onClick={() => navigate("/admin/surveys")}
+              onClick={() => {
+                if (!isEditMode) {
+                  clearStoredRequestKey();
+                }
+                navigate("/admin/surveys");
+              }}
             >
               Anket Listesine Don
             </button>
@@ -363,7 +501,9 @@ function SurveyCreatePage() {
         </div>
 
         <div style={styles.tabHeader}>
-          <div style={styles.tabText}>Yeni Anket</div>
+          <div style={styles.tabText}>
+            {isEditMode ? "Anket Duzenle" : "Yeni Anket"}
+          </div>
           <div style={styles.tabUnderline} />
         </div>
 
@@ -399,6 +539,35 @@ function SurveyCreatePage() {
                 value={targetCount}
                 onChange={(e) => setTargetCount(e.target.value)}
               />
+            </div>
+
+            <div style={styles.infoCard}>
+              <div style={styles.activeRow}>
+                <label style={styles.fieldLabel}>Anket Aktifligi</label>
+                <label style={styles.switch}>
+                  <input
+                    type="checkbox"
+                    checked={isActive}
+                    onChange={(e) => setIsActive(e.target.checked)}
+                    style={styles.switchInput}
+                  />
+                  <span
+                    style={{
+                      ...styles.slider,
+                      backgroundColor: isActive ? COLORS.orange : "#D9D9D9",
+                    }}
+                  >
+                    <span
+                      style={{
+                        ...styles.sliderKnob,
+                        transform: isActive
+                          ? "translateX(16px)"
+                          : "translateX(0px)",
+                      }}
+                    />
+                  </span>
+                </label>
+              </div>
             </div>
 
             {questions.map((question, questionIndex) => (
@@ -450,29 +619,105 @@ function SurveyCreatePage() {
                 {question.questionType === "MULTI_CHOICE" && (
                   <div style={styles.optionsArea}>
                     {question.options.map((option, optionIndex) => (
-                      <input
-                        key={optionIndex}
-                        style={styles.optionInput}
-                        type="text"
-                        placeholder={`Secenek ${optionIndex + 1}`}
-                        value={option.optionText}
-                        onChange={(e) =>
-                          updateOptionField(
-                            questionIndex,
-                            optionIndex,
-                            e.target.value
-                          )
-                        }
-                      />
+                      <div key={optionIndex} style={styles.optionRow}>
+                        <OptionIcon />
+                        <input
+                          style={styles.optionInput}
+                          type="text"
+                          placeholder={`Secenek ${optionIndex + 1}`}
+                          value={option.optionText}
+                          onChange={(e) =>
+                            updateOptionField(
+                              questionIndex,
+                              optionIndex,
+                              e.target.value
+                            )
+                          }
+                        />
+                        <button
+                          type="button"
+                          style={styles.optionActionButton}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            addOption(questionIndex);
+                          }}
+                          title="Secenek Ekle"
+                          aria-label="Secenek Ekle"
+                        >
+                          <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              d="M12 5V19"
+                              stroke="currentColor"
+                              strokeWidth="1.8"
+                              strokeLinecap="round"
+                            />
+                            <path
+                              d="M5 12H19"
+                              stroke="currentColor"
+                              strokeWidth="1.8"
+                              strokeLinecap="round"
+                            />
+                          </svg>
+                        </button>
+                        <button
+                          type="button"
+                          style={styles.optionActionButton}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeOption(questionIndex, optionIndex);
+                          }}
+                          disabled={question.options.length === 1}
+                          title="Secenegi Sil"
+                          aria-label="Secenegi Sil"
+                        >
+                          <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              d="M4 7H20"
+                              stroke="currentColor"
+                              strokeWidth="1.8"
+                              strokeLinecap="round"
+                            />
+                            <path
+                              d="M9.5 3.5H14.5"
+                              stroke="currentColor"
+                              strokeWidth="1.8"
+                              strokeLinecap="round"
+                            />
+                            <path
+                              d="M18 7L17.3 18.2C17.23 19.24 16.37 20.05 15.33 20.05H8.67C7.63 20.05 6.77 19.24 6.7 18.2L6 7"
+                              stroke="currentColor"
+                              strokeWidth="1.8"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                            <path
+                              d="M10 11V16"
+                              stroke="currentColor"
+                              strokeWidth="1.8"
+                              strokeLinecap="round"
+                            />
+                            <path
+                              d="M14 11V16"
+                              stroke="currentColor"
+                              strokeWidth="1.8"
+                              strokeLinecap="round"
+                            />
+                          </svg>
+                        </button>
+                      </div>
                     ))}
-
-                    <button
-                      type="button"
-                      style={styles.optionButton}
-                      onClick={() => addOption(questionIndex)}
-                    >
-                      Secenek Ekle
-                    </button>
                   </div>
                 )}
 
@@ -657,7 +902,11 @@ function SurveyCreatePage() {
                 onClick={handleSubmit}
                 disabled={saving}
               >
-                {saving ? "Kaydediliyor..." : "Anketi Kaydet"}
+                {saving
+                  ? "Kaydediliyor..."
+                  : isEditMode
+                    ? "Anketi Guncelle"
+                    : "Anketi Kaydet"}
               </button>
             </div>
 
@@ -794,6 +1043,12 @@ const styles = {
     color: COLORS.text,
     marginBottom: "12px",
   },
+  activeRow: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "16px",
+  },
   underlinedInput: {
     width: "100%",
     maxWidth: "560px",
@@ -871,6 +1126,11 @@ const styles = {
   optionsArea: {
     marginTop: "18px",
   },
+  optionRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+  },
   optionInput: {
     width: "100%",
     border: "none",
@@ -882,16 +1142,26 @@ const styles = {
     backgroundColor: "transparent",
     marginBottom: "8px",
   },
-  optionButton: {
-    backgroundColor: COLORS.orange,
-    color: "#FFFFFF",
+  optionIcon: {
+    width: "18px",
+    height: "18px",
+    color: COLORS.primary,
+    flexShrink: 0,
+    marginBottom: "8px",
+  },
+  optionActionButton: {
     border: "none",
-    borderRadius: "5px",
-    padding: "8px 14px",
-    fontSize: "13px",
-    fontWeight: 600,
+    background: "transparent",
+    color: "#616371",
+    width: "20px",
+    height: "20px",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 0,
     cursor: "pointer",
-    marginTop: "8px",
+    flexShrink: 0,
+    marginBottom: "8px",
   },
   mediaFieldArea: {
     marginTop: "18px",
@@ -1049,17 +1319,26 @@ const styles = {
     backgroundColor: COLORS.orange,
     color: "#FFFFFF",
     border: "none",
-    borderRadius: "7px",
-    padding: "12px 18px",
+    borderRadius: "9999px",
+    minHeight: "44px",
+    padding: "0 24px",
     fontSize: "14px",
     fontWeight: 700,
     cursor: "pointer",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
   },
   messageText: {
     marginTop: "14px",
     textAlign: "center",
     fontWeight: 700,
     color: COLORS.primary,
+  },
+  statusBox: {
+    padding: "24px",
+    fontSize: "18px",
+    fontWeight: 600,
   },
   questionErrorText: {
     marginTop: "10px",

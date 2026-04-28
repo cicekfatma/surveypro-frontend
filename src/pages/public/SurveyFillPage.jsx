@@ -45,6 +45,7 @@ function isDirectVideoUrl(url) {
 }
 
 function SurveyFillPage({ publicKey, onBack }) {
+  const storageKey = `respondentToken:${publicKey}`;
   const [survey, setSurvey] = useState(null);
   const [respondentToken, setRespondentToken] = useState("");
   const [email, setEmail] = useState("");
@@ -56,9 +57,22 @@ function SurveyFillPage({ publicKey, onBack }) {
   useEffect(() => {
     const fetchPublicSurvey = async () => {
       try {
-        const data = await getPublicSurvey(publicKey);
+        let savedRespondentToken = localStorage.getItem(storageKey) || "";
+
+        if (!savedRespondentToken) {
+          savedRespondentToken = crypto.randomUUID();
+          localStorage.setItem(storageKey, savedRespondentToken);
+        }
+
+        const data = await getPublicSurvey(publicKey, savedRespondentToken);
         setSurvey(data);
-        setRespondentToken(data.respondentToken || "");
+        const nextRespondentToken =
+          data.respondentToken || savedRespondentToken || "";
+        setRespondentToken(nextRespondentToken);
+
+        if (data.respondentToken) {
+          localStorage.setItem(storageKey, data.respondentToken);
+        }
       } catch (err) {
         console.error(err);
         setMessage(getApiErrorMessage(err, "Anket yuklenemedi."));
@@ -68,7 +82,7 @@ function SurveyFillPage({ publicKey, onBack }) {
     };
 
     fetchPublicSurvey();
-  }, [publicKey]);
+  }, [publicKey, storageKey]);
 
   const handleTextChange = (questionId, value) => {
     setAnswers((prev) => ({
@@ -170,13 +184,18 @@ function SurveyFillPage({ publicKey, onBack }) {
     setMessage("");
 
     try {
-      await submitPublicSurvey(publicKey, {
+      const response = await submitPublicSurvey(publicKey, {
         email,
         respondentToken,
         answers: buildAnswerPayload(),
       });
 
-      setMessage("Cevabiniz basariyla kaydedildi.");
+      if (response?.respondentToken) {
+        setRespondentToken(response.respondentToken);
+        localStorage.setItem(storageKey, response.respondentToken);
+      }
+
+      setMessage(response?.message || "Cevabiniz basariyla kaydedildi.");
     } catch (err) {
       console.error(err);
       setMessage(getApiErrorMessage(err, "Hata olustu."));

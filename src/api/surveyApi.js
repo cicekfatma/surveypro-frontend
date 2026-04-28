@@ -10,6 +10,14 @@ export async function createSurvey(payload) {
   return data;
 }
 
+export async function updateSurvey(surveyId, payload) {
+  const { data } = await axiosInstance.put(
+    `/admin/surveys/${surveyId}`,
+    payload
+  );
+  return data;
+}
+
 export async function getSurveyDetail(surveyId) {
   const { data } = await axiosInstance.get(`/admin/surveys/${surveyId}`);
   return data;
@@ -27,8 +35,18 @@ export async function getSurveyDashboard(surveyId) {
   return data;
 }
 
-export async function getPublicSurvey(publicKey) {
-  const { data } = await axiosInstance.get(`/public/surveys/${publicKey}`);
+export async function getSurveyDailyStats(surveyId) {
+  const { data } = await axiosInstance.get(
+    `/admin/surveys/${surveyId}/daily-stats`
+  );
+  return data;
+}
+
+export async function getPublicSurvey(publicKey, respondentToken) {
+  const params = respondentToken ? { respondentToken } : undefined;
+  const { data } = await axiosInstance.get(`/public/surveys/${publicKey}`, {
+    params,
+  });
   return data;
 }
 

@@ -96,6 +96,10 @@ function App() {
         <Route path="/admin" element={<Navigate to="/admin/surveys" replace />} />
         <Route path="/admin/surveys" element={<SurveyListPage />} />
         <Route path="/admin/surveys/create" element={<SurveyCreatePage />} />
+        <Route
+          path="/admin/surveys/:surveyId/edit"
+          element={<SurveyCreatePage />}
+        />
         <Route path="/admin/surveys/:surveyId" element={<SurveyDetailPage />} />
         <Route
           path="/admin/surveys/:surveyId/results"

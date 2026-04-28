@@ -1,9 +1,24 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getApiErrorMessage } from "../../api/axiosInstance";
-import { getSurveyDashboard } from "../../api/surveyApi";
+import {
+  getSurveyDashboard,
+  getSurveyDailyStats,
+} from "../../api/surveyApi";
 import { clearAuthSession } from "../../auth/session";
 import surveyProLogo from "../../assets/surveypro-logo.png";
+import {
+  Bar,
+  ComposedChart,
+  CartesianGrid,
+  Legend,
+  Line,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+  Label,
+} from "recharts";
 
 const COLORS = {
   primary: "#023E8A",
@@ -37,15 +52,51 @@ function LogoutIcon() {
 
 function formatPercentage(value) {
   return `${new Intl.NumberFormat("tr-TR", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
   }).format(Number(value ?? 0))}%`;
+}
+
+function formatChartDate(value) {
+  return new Intl.DateTimeFormat("tr-TR", {
+    day: "2-digit",
+    month: "short",
+  }).format(new Date(value));
+}
+
+function formatTooltipDate(value) {
+  return new Intl.DateTimeFormat("tr-TR", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  }).format(new Date(value));
+}
+
+function ChartTooltip({ active, payload, label }) {
+  if (!active || !payload?.length) {
+    return null;
+  }
+
+  return (
+    <div style={styles.tooltipCard}>
+      <div style={styles.tooltipTitle}>{formatTooltipDate(label)}</div>
+      {payload.map((item) => (
+        <div key={item.dataKey} style={styles.tooltipRow}>
+          <span style={{ ...styles.tooltipDot, backgroundColor: item.color }} />
+          <span style={styles.tooltipLabel}>{`${item.name}:`}</span>
+          <span style={styles.tooltipValue}>{item.value ?? 0}</span>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function DashboardPage() {
   const navigate = useNavigate();
   const { surveyId } = useParams();
   const [dashboard, setDashboard] = useState(null);
+  const [dailyStats, setDailyStats] = useState([]);
+  const [dailyStatsError, setDailyStatsError] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -57,8 +108,25 @@ function DashboardPage() {
   useEffect(() => {
     const fetchDashboard = async () => {
       try {
-        const data = await getSurveyDashboard(surveyId);
-        setDashboard(data);
+        setError("");
+        setDailyStatsError("");
+
+        const dashboardData = await getSurveyDashboard(surveyId);
+        setDashboard(dashboardData);
+
+        try {
+          const dailyStatsData = await getSurveyDailyStats(surveyId);
+          setDailyStats(dailyStatsData || []);
+        } catch (dailyStatsRequestError) {
+          console.error(dailyStatsRequestError);
+          setDailyStats([]);
+          setDailyStatsError(
+            getApiErrorMessage(
+              dailyStatsRequestError,
+              "Gunluk istatistikler su anda alinamiyor."
+            )
+          );
+        }
       } catch (err) {
         console.error(err);
         setError(getApiErrorMessage(err, "Dashboard alinamadi"));
@@ -171,6 +239,89 @@ function DashboardPage() {
                   <div style={styles.metricValue}>{card.value ?? 0}</div>
                 </div>
               ))}
+            </div>
+
+            <div style={styles.chartSection}>
+              <div style={styles.sectionHeader}>Gunluk Istatistikler</div>
+
+              <div style={styles.chartCard}>
+                {dailyStatsError && (
+                  <div style={styles.chartErrorText}>
+                    Hata: {dailyStatsError}
+                  </div>
+                )}
+
+                {dailyStats.length === 0 ? (
+                  <div style={styles.emptyChartText}>
+                    Henuz gunluk istatistik verisi yok.
+                  </div>
+                ) : (
+                  <div style={styles.chartWrapper}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ComposedChart
+                        data={dailyStats}
+                        margin={{ top: 12, right: 20, left: 0, bottom: 28 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#E4E4E7" />
+                        <XAxis
+                          dataKey="date"
+                          stroke="#616371"
+                          tickFormatter={formatChartDate}
+                          angle={-30}
+                          textAnchor="end"
+                          height={60}
+                          interval="preserveStartEnd"
+                        />
+                        <YAxis
+                          allowDecimals={false}
+                          domain={[0, "auto"]}
+                          stroke="#616371"
+                        >
+                          <Label
+                            value="Acilma"
+                            angle={-90}
+                            position="insideLeft"
+                            style={styles.leftAxisLabel}
+                          />
+                        </YAxis>
+                        <YAxis
+                          yAxisId="submitted"
+                          orientation="right"
+                          allowDecimals={false}
+                          domain={[0, "auto"]}
+                          stroke={COLORS.orange}
+                        >
+                          <Label
+                            value="Tamamlanma"
+                            angle={90}
+                            position="insideRight"
+                            style={styles.rightAxisLabel}
+                          />
+                        </YAxis>
+                        <Tooltip content={<ChartTooltip />} />
+                        <Legend />
+                        <Bar
+                          dataKey="openedCount"
+                          name="Acilma"
+                          fill={COLORS.primary}
+                          radius={[6, 6, 0, 0]}
+                          barSize={24}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="submittedCount"
+                          name="Tamamlanma"
+                          yAxisId="submitted"
+                          stroke={COLORS.orange}
+                          strokeWidth={3}
+                          dot={{ r: 4 }}
+                          activeDot={{ r: 6 }}
+                        />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -371,6 +522,88 @@ const styles = {
     fontSize: "28px",
     fontWeight: 700,
     color: COLORS.primary,
+  },
+
+  chartSection: {
+    marginTop: "28px",
+  },
+
+  chartCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: "10px",
+    padding: "18px",
+    border: `1px solid ${COLORS.border}`,
+    boxShadow: "0 1px 3px rgba(16, 24, 40, 0.05)",
+  },
+
+  chartWrapper: {
+    width: "100%",
+    height: "320px",
+  },
+
+  emptyChartText: {
+    color: COLORS.muted,
+    fontSize: "14px",
+  },
+
+  chartErrorText: {
+    color: "#B91228",
+    fontSize: "14px",
+    fontWeight: 600,
+    marginBottom: "12px",
+  },
+
+  tooltipCard: {
+    backgroundColor: "#FFFFFF",
+    border: `1px solid ${COLORS.border}`,
+    borderRadius: "10px",
+    padding: "10px 12px",
+    boxShadow: "0 8px 24px rgba(16, 24, 40, 0.12)",
+  },
+
+  tooltipTitle: {
+    fontSize: "13px",
+    fontWeight: 700,
+    color: COLORS.text,
+    marginBottom: "8px",
+  },
+
+  tooltipRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    fontSize: "13px",
+    color: COLORS.text,
+    marginTop: "4px",
+  },
+
+  tooltipDot: {
+    width: "10px",
+    height: "10px",
+    borderRadius: "999px",
+    flexShrink: 0,
+  },
+
+  tooltipLabel: {
+    color: COLORS.muted,
+  },
+
+  tooltipValue: {
+    marginLeft: "auto",
+    fontWeight: 700,
+    color: COLORS.text,
+  },
+
+  leftAxisLabel: {
+    fill: "#616371",
+    fontSize: "12px",
+    fontWeight: 600,
+  },
+
+  rightAxisLabel: {
+    fill: COLORS.orange,
+    fontSize: "12px",
+    fontWeight: 600,
   },
 
   statusBox: {

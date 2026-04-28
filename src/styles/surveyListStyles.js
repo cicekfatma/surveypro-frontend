@@ -125,6 +125,82 @@ export const styles = {
     gap: "14px",
   },
 
+  filterCard: {
+    backgroundColor: "#ffffff",
+    borderRadius: "8px",
+    padding: "18px",
+    border: "1px solid #d9dee5",
+    boxShadow: "0 1px 3px rgba(16, 24, 40, 0.08)",
+  },
+
+  filterGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+    gap: "12px",
+  },
+
+  filterField: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "8px",
+  },
+
+  filterLabel: {
+    fontSize: "13px",
+    fontWeight: 600,
+    color: "#3b3b3b",
+  },
+
+  filterInput: {
+    width: "100%",
+    minHeight: "40px",
+    borderRadius: "8px",
+    border: "1px solid #d9dee5",
+    padding: "0 12px",
+    fontSize: "13px",
+    color: "#28283A",
+    backgroundColor: "#ffffff",
+    boxSizing: "border-box",
+    fontFamily: FONT_FAMILY,
+  },
+
+  filterActions: {
+    display: "flex",
+    gap: "10px",
+    marginTop: "14px",
+    flexWrap: "wrap",
+  },
+
+  filterButton: {
+    backgroundColor: "#003B95",
+    color: "#ffffff",
+    border: "none",
+    borderRadius: "999px",
+    minHeight: "40px",
+    padding: "0 18px",
+    fontSize: "13px",
+    fontWeight: 600,
+    cursor: "pointer",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  filterResetButton: {
+    backgroundColor: BABY_BLUE,
+    color: "#7A4A00",
+    border: "1px solid #F2D392",
+    borderRadius: "999px",
+    minHeight: "40px",
+    padding: "0 18px",
+    fontSize: "13px",
+    fontWeight: 600,
+    cursor: "pointer",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
   surveyCard: {
     backgroundColor: "#ffffff",
     borderRadius: "8px",
