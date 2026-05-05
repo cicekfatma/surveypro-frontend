@@ -113,6 +113,12 @@ function SurveyDetailPage() {
             </button>
             <button
               style={styles.topButton}
+              onClick={() => navigate(`/admin/surveys/${surveyId}/mail`)}
+            >
+              Mail Otomasyonu
+            </button>
+            <button
+              style={styles.topButton}
               onClick={() => navigate("/admin/surveys")}
             >
               Anket Listesine Dön

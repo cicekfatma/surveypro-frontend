@@ -11,6 +11,7 @@ import {
 import { validateSession } from "./api/authApi";
 import ProtectedRoute from "./components/common/ProtectedRoute";
 import DashboardPage from "./pages/admin/DashboardPage";
+import MailAutomationPage from "./pages/admin/MailAutomationPage";
 import SurveyCreatePage from "./pages/admin/SurveyCreatePage";
 import SurveyDetailPage from "./pages/admin/SurveyDetailPage";
 import SurveyListPage from "./pages/admin/SurveyListPage";
@@ -108,6 +109,10 @@ function App() {
         <Route
           path="/admin/surveys/:surveyId/dashboard"
           element={<DashboardPage />}
+        />
+        <Route
+          path="/admin/surveys/:surveyId/mail"
+          element={<MailAutomationPage />}
         />
       </Route>
 

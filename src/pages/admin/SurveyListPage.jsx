@@ -170,6 +170,7 @@ function SurveyListPage() {
                   onDashboard={() =>
                     navigate(`/admin/surveys/${survey.id}/dashboard`)
                   }
+                  onMail={() => navigate(`/admin/surveys/${survey.id}/mail`)}
                   onPublic={() => navigate(`/survey/${survey.publicKey}`)}
                 />
               ))

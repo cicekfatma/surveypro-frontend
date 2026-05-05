@@ -44,7 +44,7 @@ function isDirectVideoUrl(url) {
   return /\.(mp4|webm|ogg|mov)(\?.*)?$/i.test(url);
 }
 
-function SurveyFillPage({ publicKey, onBack }) {
+function SurveyFillPage({ publicKey, respondentTokenFromUrl = "", onBack }) {
   const storageKey = `respondentToken:${publicKey}`;
   const [survey, setSurvey] = useState(null);
   const [respondentToken, setRespondentToken] = useState("");
@@ -57,7 +57,8 @@ function SurveyFillPage({ publicKey, onBack }) {
   useEffect(() => {
     const fetchPublicSurvey = async () => {
       try {
-        let savedRespondentToken = localStorage.getItem(storageKey) || "";
+        let savedRespondentToken =
+          respondentTokenFromUrl || localStorage.getItem(storageKey) || "";
 
         if (!savedRespondentToken) {
           savedRespondentToken = crypto.randomUUID();
@@ -82,7 +83,7 @@ function SurveyFillPage({ publicKey, onBack }) {
     };
 
     fetchPublicSurvey();
-  }, [publicKey, storageKey]);
+  }, [publicKey, respondentTokenFromUrl, storageKey]);
 
   const handleTextChange = (questionId, value) => {
     setAnswers((prev) => ({

@@ -1,6 +1,13 @@
 import { styles } from "../../styles/surveyListStyles";
 
-function SurveyCard({ survey, onDetail, onResults, onDashboard, onPublic }) {
+function SurveyCard({
+  survey,
+  onDetail,
+  onResults,
+  onDashboard,
+  onMail,
+  onPublic,
+}) {
   return (
     <div style={styles.surveyCard}>
       <div style={styles.surveyTitle}>{survey.title}</div>
@@ -25,6 +32,13 @@ function SurveyCard({ survey, onDetail, onResults, onDashboard, onPublic }) {
           onClick={() => onDashboard?.(survey)}
         >
           Dashboard
+        </button>
+
+        <button
+          style={styles.smallActionButton}
+          onClick={() => onMail?.(survey)}
+        >
+          Mail
         </button>
 
         <button
