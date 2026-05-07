@@ -92,7 +92,8 @@ function getStatusStyle(status) {
 function getRespondentStatus(respondent) {
   if (respondent.submittedAt) return "Tamamladi";
   if (respondent.openedAt) return "Acti";
-  if (respondent.invitationSentAt || respondent.invitedAt) return "Davet gitti";
+  if (respondent.status === "NOT_OPENED") return "Bekliyor";
+  if (respondent.status) return respondent.status;
   return "Bekliyor";
 }
 
@@ -127,6 +128,36 @@ function parseEmails(value) {
     });
 }
 
+function findInvitationLog(respondent, logs) {
+  const invitationLogs = logs.filter((log) => log.emailType === "INVITATION");
+
+  return (
+    invitationLogs.find(
+      (log) =>
+        log.respondentId != null &&
+        respondent.id != null &&
+        Number(log.respondentId) === Number(respondent.id)
+    ) ||
+    invitationLogs.find(
+      (log) =>
+        log.toEmail &&
+        respondent.email &&
+        log.toEmail.toLowerCase() === respondent.email.toLowerCase()
+    ) ||
+    null
+  );
+}
+
+function getInvitationText(invitationLog) {
+  if (!invitationLog) return "Hazirlanmadi";
+
+  if (invitationLog.status === "SENT") return "Gonderildi";
+  if (invitationLog.status === "PENDING") return "Kuyrukta";
+  if (invitationLog.status === "FAILED") return "Basarisiz";
+
+  return invitationLog.status || "Hazirlandi";
+}
+
 function InlineMessage({ type = "info", children }) {
   if (!children) return null;
 
@@ -143,7 +174,7 @@ function InlineMessage({ type = "info", children }) {
   );
 }
 
-function RespondentsTable({ respondents, loading, error, onRefresh }) {
+function RespondentsTable({ respondents, logs, loading, error, onRefresh }) {
   return (
     <section style={styles.card}>
       <div style={styles.cardHeader}>
@@ -187,6 +218,7 @@ function RespondentsTable({ respondents, loading, error, onRefresh }) {
             <tbody>
               {respondents.map((respondent, index) => {
                 const status = getRespondentStatus(respondent);
+                const invitationLog = findInvitationLog(respondent, logs);
 
                 return (
                   <tr
@@ -202,8 +234,18 @@ function RespondentsTable({ respondents, loading, error, onRefresh }) {
                       </span>
                     </td>
                     <td style={styles.td}>
-                      {formatDateTime(
-                        respondent.invitationSentAt || respondent.invitedAt
+                      <span style={getStatusStyle(invitationLog?.status)}>
+                        {getInvitationText(invitationLog)}
+                      </span>
+                      <div style={styles.queueMeta}>
+                        {formatDateTime(
+                          invitationLog?.updatedAt || invitationLog?.createdAt
+                        )}
+                      </div>
+                      {invitationLog?.errorMessage && (
+                        <div style={styles.errorDetail}>
+                          {invitationLog.errorMessage}
+                        </div>
                       )}
                     </td>
                     <td style={styles.td}>
@@ -474,6 +516,27 @@ function MailConfigPanel({ surveyId }) {
 }
 
 function EmailLogsTable({ logs, loading, error, onRefresh }) {
+  const [emailTypeFilter, setEmailTypeFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [searchText, setSearchText] = useState("");
+
+  const filteredLogs = useMemo(() => {
+    const normalizedSearch = searchText.trim().toLowerCase();
+
+    return logs.filter((log) => {
+      const matchesType =
+        !emailTypeFilter || log.emailType === emailTypeFilter;
+      const matchesStatus = !statusFilter || log.status === statusFilter;
+      const matchesSearch =
+        !normalizedSearch ||
+        [log.toEmail, log.subject, log.errorMessage]
+          .filter(Boolean)
+          .some((value) => value.toLowerCase().includes(normalizedSearch));
+
+      return matchesType && matchesStatus && matchesSearch;
+    });
+  }, [emailTypeFilter, logs, searchText, statusFilter]);
+
   return (
     <section style={styles.card}>
       <div style={styles.cardHeader}>
@@ -493,36 +556,91 @@ function EmailLogsTable({ logs, loading, error, onRefresh }) {
       ) : logs.length === 0 ? (
         <div style={styles.emptyState}>Email logu bulunamadi.</div>
       ) : (
-        <div style={styles.tableWrap}>
-          <table style={styles.table}>
-            <thead>
-              <tr>
-                <th style={styles.th}>Tip</th>
-                <th style={styles.th}>Alici</th>
-                <th style={styles.th}>Konu</th>
-                <th style={styles.th}>Durum</th>
-                <th style={styles.th}>Tarih</th>
-              </tr>
-            </thead>
-            <tbody>
-              {logs.map((log) => (
-                <tr key={log.id} style={styles.tr}>
-                  <td style={styles.td}>{log.emailType || "-"}</td>
-                  <td style={styles.td}>{log.toEmail || "-"}</td>
-                  <td style={styles.td}>{log.subject || "-"}</td>
-                  <td style={styles.td}>
-                    <span style={getStatusStyle(log.status)}>{log.status}</span>
-                    {log.errorMessage && (
-                      <div style={styles.errorDetail}>{log.errorMessage}</div>
-                    )}
-                  </td>
-                  <td style={styles.td}>
-                    {formatDateTime(log.createdAt || log.updatedAt)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div>
+          <div style={styles.filterGrid}>
+            <label style={styles.field}>
+              <span style={styles.label}>Mail tipi</span>
+              <select
+                style={styles.input}
+                value={emailTypeFilter}
+                onChange={(event) => setEmailTypeFilter(event.target.value)}
+              >
+                <option value="">Tum tipler</option>
+                <option value="INVITATION">Invitation</option>
+                <option value="REMINDER">Reminder</option>
+                <option value="WEEKLY_REPORT">Weekly Report</option>
+              </select>
+            </label>
+
+            <label style={styles.field}>
+              <span style={styles.label}>Durum</span>
+              <select
+                style={styles.input}
+                value={statusFilter}
+                onChange={(event) => setStatusFilter(event.target.value)}
+              >
+                <option value="">Tum durumlar</option>
+                <option value="PENDING">Pending</option>
+                <option value="SENT">Sent</option>
+                <option value="FAILED">Failed</option>
+              </select>
+            </label>
+
+            <label style={styles.field}>
+              <span style={styles.label}>Arama</span>
+              <input
+                style={styles.input}
+                type="search"
+                value={searchText}
+                onChange={(event) => setSearchText(event.target.value)}
+                placeholder="E-posta, konu veya hata"
+              />
+            </label>
+          </div>
+
+          <div style={styles.filterSummary}>
+            {filteredLogs.length} / {logs.length} kayit gosteriliyor
+          </div>
+
+          {filteredLogs.length === 0 ? (
+            <div style={styles.emptyState}>Filtreye uygun email logu yok.</div>
+          ) : (
+            <div style={styles.tableWrap}>
+              <table style={styles.table}>
+                <thead>
+                  <tr>
+                    <th style={styles.th}>Tip</th>
+                    <th style={styles.th}>Alici</th>
+                    <th style={styles.th}>Konu</th>
+                    <th style={styles.th}>Durum</th>
+                    <th style={styles.th}>Tarih</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredLogs.map((log) => (
+                    <tr key={log.id} style={styles.tr}>
+                      <td style={styles.td}>{log.emailType || "-"}</td>
+                      <td style={styles.td}>{log.toEmail || "-"}</td>
+                      <td style={styles.td}>{log.subject || "-"}</td>
+                      <td style={styles.td}>
+                        <span style={getStatusStyle(log.status)}>
+                          {log.status}
+                        </span>
+                        {log.errorMessage && (
+                          <div style={styles.errorDetail}>
+                            {log.errorMessage}
+                          </div>
+                        )}
+                      </td>
+                      <td style={styles.td}>
+                        {formatDateTime(log.createdAt || log.updatedAt)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
     </section>
@@ -934,6 +1052,7 @@ function MailAutomationPage() {
 
             <RespondentsTable
               respondents={respondents}
+              logs={logs}
               loading={respondentsLoading}
               error={respondentsError}
               onRefresh={fetchRespondents}
@@ -1130,6 +1249,18 @@ const styles = {
     gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
     gap: "14px",
     alignItems: "end",
+  },
+  filterGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+    gap: "12px",
+    marginBottom: "12px",
+  },
+  filterSummary: {
+    color: COLORS.muted,
+    fontSize: "13px",
+    fontWeight: 700,
+    marginBottom: "12px",
   },
   field: {
     display: "flex",
