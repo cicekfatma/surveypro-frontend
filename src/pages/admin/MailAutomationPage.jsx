@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getApiErrorMessage } from "../../api/axiosInstance";
 import {
@@ -7,6 +14,7 @@ import {
   getPendingEmails,
   getReminderCandidates,
   getRespondents,
+  getRespondentsPage,
   importRespondents,
   queueInvitations,
   queueReminderEmails,
@@ -113,6 +121,27 @@ function getRespondentStatusStyle(status) {
   return { ...styles.statusPill, ...styles.statusNeutral };
 }
 
+function matchesRespondentStatus(respondent, status) {
+  if (status === "ALL") return true;
+  if (status === "SUBMITTED") {
+    return Boolean(respondent.submittedAt || respondent.status === "SUBMITTED");
+  }
+  if (status === "OPENED_NOT_SUBMITTED") {
+    return Boolean(
+      !respondent.submittedAt &&
+        (respondent.openedAt || respondent.status === "OPENED_NOT_SUBMITTED")
+    );
+  }
+  if (status === "NOT_OPENED") {
+    return Boolean(
+      !respondent.openedAt &&
+        !respondent.submittedAt &&
+        (!respondent.status || respondent.status === "NOT_OPENED")
+    );
+  }
+  return true;
+}
+
 function parseEmails(value) {
   const seen = new Set();
 
@@ -174,7 +203,49 @@ function InlineMessage({ type = "info", children }) {
   );
 }
 
-function RespondentsTable({ respondents, logs, loading, error, onRefresh }) {
+const RESPONDENT_STATUS_OPTIONS = [
+  { value: "ALL", label: "Tum durumlar" },
+  { value: "NOT_OPENED", label: "Acilmayanlar" },
+  { value: "OPENED_NOT_SUBMITTED", label: "Acan ama tamamlamayan" },
+  { value: "SUBMITTED", label: "Tamamlayanlar" },
+];
+
+function getPaginationItems(currentPage, totalPages) {
+  const pageCount = Math.max(totalPages, 1);
+  const current = Math.min(Math.max(currentPage, 0), pageCount - 1);
+
+  if (pageCount <= 5) {
+    return Array.from({ length: pageCount }, (_, index) => index);
+  }
+
+  const start = Math.min(Math.max(current - 2, 0), pageCount - 5);
+  return Array.from({ length: 5 }, (_, index) => start + index);
+}
+
+function RespondentsTable({
+  respondents,
+  logs,
+  loading,
+  error,
+  onRefresh,
+  page,
+  size,
+  status,
+  totalPages,
+  totalElements,
+  onPageChange,
+  onSizeChange,
+  onStatusChange,
+}) {
+  const [isSizeMenuOpen, setIsSizeMenuOpen] = useState(false);
+  const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
+  const pageSizeButtonRef = useRef(null);
+  const displayTotalPages = totalPages || 1;
+  const paginationItems = getPaginationItems(page, displayTotalPages);
+  const isFirstPage = page === 0;
+  const isLastPage = page + 1 >= displayTotalPages;
+  const pageSizeOptions = [5, 10, 20];
+
   return (
     <section style={styles.card}>
       <div style={styles.cardHeader}>
@@ -185,25 +256,87 @@ function RespondentsTable({ respondents, logs, loading, error, onRefresh }) {
           </p>
         </div>
         <div style={styles.headerButtons}>
-          <span style={styles.countPill}>{respondents.length}</span>
+          <span style={styles.countPill}>{totalElements}</span>
           <button
             type="button"
             style={styles.secondaryButton}
             onClick={onRefresh}
+            disabled={loading}
           >
             Yenile
           </button>
         </div>
       </div>
 
+      <div style={styles.filterGrid}>
+        <div
+          style={styles.field}
+          onBlur={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget)) {
+              setIsStatusMenuOpen(false);
+            }
+          }}
+        >
+          <span style={styles.label}>Katilimci durumu</span>
+          <div style={styles.statusMenuWrap}>
+            <button
+              type="button"
+              style={styles.statusSelectButton}
+              onClick={() => setIsStatusMenuOpen((isOpen) => !isOpen)}
+              disabled={loading}
+              aria-haspopup="listbox"
+              aria-expanded={isStatusMenuOpen}
+            >
+              <span>
+                {RESPONDENT_STATUS_OPTIONS.find(
+                  (option) => option.value === status
+                )?.label || "Tum durumlar"}
+              </span>
+              <span style={styles.pageSizeChevron} aria-hidden="true" />
+            </button>
+
+            {isStatusMenuOpen && (
+              <div style={styles.statusMenu} role="listbox">
+                {RESPONDENT_STATUS_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    style={{
+                      ...styles.statusOption,
+                      ...(option.value === status
+                        ? styles.statusOptionActive
+                        : null),
+                    }}
+                    role="option"
+                    aria-selected={option.value === status}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => {
+                      setIsStatusMenuOpen(false);
+                      onStatusChange(option.value);
+                    }}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
       <InlineMessage type="error">{error}</InlineMessage>
 
-      {loading ? (
+      {loading && respondents.length === 0 ? (
         <div style={styles.mutedText}>Yukleniyor...</div>
       ) : respondents.length === 0 ? (
         <div style={styles.emptyState}>Katilimci bulunamadi.</div>
       ) : (
-        <div style={styles.tableWrap}>
+        <div
+          style={{
+            ...styles.tableWrap,
+            ...(loading ? styles.tableWrapLoading : null),
+          }}
+        >
           <table style={styles.table}>
             <thead>
               <tr>
@@ -273,6 +406,136 @@ function RespondentsTable({ respondents, logs, loading, error, onRefresh }) {
           </table>
         </div>
       )}
+
+      <div style={styles.paginationFooter}>
+        <span style={styles.paginationTotal}>Toplam: {totalElements}</span>
+
+        <div style={styles.paginationControls}>
+          <button
+            type="button"
+            style={{
+              ...styles.paginationButton,
+              ...(isFirstPage || loading ? styles.paginationButtonDisabled : null),
+            }}
+            disabled={isFirstPage || loading}
+            onClick={(event) => onPageChange(0, event.currentTarget)}
+            aria-label="Ilk sayfa"
+            title="Ilk sayfa"
+          >
+            &lt;&lt;
+          </button>
+
+          <button
+            type="button"
+            style={{
+              ...styles.paginationButton,
+              ...(isFirstPage || loading ? styles.paginationButtonDisabled : null),
+            }}
+            disabled={isFirstPage || loading}
+            onClick={(event) => onPageChange(page - 1, event.currentTarget)}
+            aria-label="Onceki sayfa"
+            title="Onceki sayfa"
+          >
+            &lt;
+          </button>
+
+          {paginationItems.map((item) => (
+            <button
+              key={item}
+              type="button"
+              style={{
+                ...styles.paginationButton,
+                ...(item === page ? styles.paginationButtonActive : null),
+                ...(loading ? styles.paginationButtonDisabled : null),
+                }}
+                disabled={loading}
+                onClick={(event) => onPageChange(item, event.currentTarget)}
+                aria-current={item === page ? "page" : undefined}
+              >
+                {item + 1}
+            </button>
+          ))}
+
+          <button
+            type="button"
+            style={{
+              ...styles.paginationButton,
+              ...(isLastPage || loading ? styles.paginationButtonDisabled : null),
+            }}
+            disabled={isLastPage || loading}
+            onClick={(event) => onPageChange(page + 1, event.currentTarget)}
+            aria-label="Sonraki sayfa"
+            title="Sonraki sayfa"
+          >
+            &gt;
+          </button>
+
+          <button
+            type="button"
+            style={{
+              ...styles.paginationButton,
+              ...(isLastPage || loading ? styles.paginationButtonDisabled : null),
+            }}
+            disabled={isLastPage || loading}
+            onClick={(event) =>
+              onPageChange(displayTotalPages - 1, event.currentTarget)
+            }
+            aria-label="Son sayfa"
+            title="Son sayfa"
+          >
+            &gt;&gt;
+          </button>
+        </div>
+
+        <div
+          style={styles.pageSizeField}
+          onBlur={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget)) {
+              setIsSizeMenuOpen(false);
+            }
+          }}
+        >
+          <span style={styles.label}>Sayfada goster</span>
+          <div style={styles.pageSizeMenuWrap}>
+            <button
+              ref={pageSizeButtonRef}
+              type="button"
+              style={styles.pageSizeSelectButton}
+              onClick={() => setIsSizeMenuOpen((isOpen) => !isOpen)}
+              disabled={loading}
+              aria-haspopup="listbox"
+              aria-expanded={isSizeMenuOpen}
+            >
+              <span>{size}</span>
+              <span style={styles.pageSizeChevron} aria-hidden="true" />
+            </button>
+
+            {isSizeMenuOpen && (
+              <div style={styles.pageSizeMenu} role="listbox">
+                {pageSizeOptions.map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    style={{
+                      ...styles.pageSizeOption,
+                      ...(option === size ? styles.pageSizeOptionActive : null),
+                    }}
+                    role="option"
+                    aria-selected={option === size}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => {
+                      setIsSizeMenuOpen(false);
+                      onSizeChange(option, pageSizeButtonRef.current);
+                    }}
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </section>
   );
 }
@@ -849,11 +1112,18 @@ function WeeklyReportPanel({ surveyId, onQueued }) {
 function MailAutomationPage() {
   const navigate = useNavigate();
   const { surveyId } = useParams();
+  const preservedScrollYRef = useRef(null);
+  const preservedAnchorRef = useRef(null);
   const [survey, setSurvey] = useState(null);
   const [logs, setLogs] = useState([]);
   const [pendingEmails, setPendingEmails] = useState([]);
   const [candidates, setCandidates] = useState([]);
   const [respondents, setRespondents] = useState([]);
+  const [respondentPage, setRespondentPage] = useState(0);
+  const [respondentSize, setRespondentSize] = useState(5);
+  const [respondentStatus, setRespondentStatus] = useState("ALL");
+  const [respondentTotalPages, setRespondentTotalPages] = useState(0);
+  const [respondentTotalElements, setRespondentTotalElements] = useState(0);
   const [pageLoading, setPageLoading] = useState(true);
   const [logsLoading, setLogsLoading] = useState(false);
   const [pendingLoading, setPendingLoading] = useState(false);
@@ -918,14 +1188,44 @@ function MailAutomationPage() {
     try {
       setRespondentsLoading(true);
       setRespondentsError("");
-      setRespondents(normalizeList(await getRespondents(surveyId)));
-    } catch (err) {
-      setRespondents([]);
-      setRespondentsError(getApiErrorMessage(err, "Katilimcilar alinamadi."));
+      const data = await getRespondentsPage(surveyId, {
+        page: respondentPage,
+        size: respondentSize,
+        status: respondentStatus,
+      });
+      setRespondents(data.content || []);
+      setRespondentTotalPages(data.totalPages || 0);
+      setRespondentTotalElements(data.totalElements || 0);
+    } catch {
+      try {
+        const fallbackRespondents = normalizeList(await getRespondents(surveyId));
+        const filteredRespondents = fallbackRespondents.filter((respondent) =>
+          matchesRespondentStatus(respondent, respondentStatus)
+        );
+        const startIndex = respondentPage * respondentSize;
+        const pageRespondents = filteredRespondents.slice(
+          startIndex,
+          startIndex + respondentSize
+        );
+
+        setRespondents(pageRespondents);
+        setRespondentTotalPages(
+          Math.ceil(filteredRespondents.length / respondentSize)
+        );
+        setRespondentTotalElements(filteredRespondents.length);
+        setRespondentsError("");
+      } catch (fallbackErr) {
+        setRespondents([]);
+        setRespondentTotalPages(0);
+        setRespondentTotalElements(0);
+        setRespondentsError(
+          getApiErrorMessage(fallbackErr, "Katilimcilar alinamadi.")
+        );
+      }
     } finally {
       setRespondentsLoading(false);
     }
-  }, [surveyId]);
+  }, [respondentPage, respondentSize, respondentStatus, surveyId]);
 
   const refreshMailData = useCallback(() => {
     fetchLogs();
@@ -933,6 +1233,85 @@ function MailAutomationPage() {
     fetchCandidates();
     fetchRespondents();
   }, [fetchCandidates, fetchLogs, fetchPending, fetchRespondents]);
+
+  const refreshRespondentsAfterChange = useCallback(() => {
+    fetchLogs();
+    fetchPending();
+    fetchCandidates();
+
+    if (respondentPage === 0) {
+      fetchRespondents();
+    } else {
+      setRespondentPage(0);
+    }
+  }, [
+    fetchCandidates,
+    fetchLogs,
+    fetchPending,
+    fetchRespondents,
+    respondentPage,
+  ]);
+
+  const handleRespondentStatusChange = useCallback((nextStatus) => {
+    setRespondentStatus(nextStatus);
+    setRespondentPage(0);
+  }, []);
+
+  const preserveScrollPosition = useCallback((update, anchor) => {
+    preservedScrollYRef.current = window.scrollY;
+    preservedAnchorRef.current = anchor
+      ? {
+          element: anchor,
+          top: anchor.getBoundingClientRect().top,
+        }
+      : null;
+    update();
+  }, []);
+
+  const handleRespondentSizeChange = useCallback(
+    (nextSize, anchor) => {
+      preserveScrollPosition(() => {
+        setRespondentSize(nextSize);
+        setRespondentPage(0);
+      }, anchor);
+    },
+    [preserveScrollPosition]
+  );
+
+  const handleRespondentPageChange = useCallback(
+    (nextPage, anchor) => {
+      preserveScrollPosition(() => {
+        setRespondentPage(nextPage);
+      }, anchor);
+    },
+    [preserveScrollPosition]
+  );
+
+  useLayoutEffect(() => {
+    if (preservedScrollYRef.current == null && !preservedAnchorRef.current) {
+      return;
+    }
+
+    const anchor = preservedAnchorRef.current;
+
+    if (anchor?.element?.isConnected) {
+      const nextTop = anchor.element.getBoundingClientRect().top;
+      window.scrollBy({
+        top: nextTop - anchor.top,
+        behavior: "auto",
+      });
+    } else if (preservedScrollYRef.current != null) {
+      window.scrollTo({
+        top: preservedScrollYRef.current,
+        behavior: "auto",
+      });
+    }
+
+    if (!respondentsLoading) {
+      preservedScrollYRef.current = null;
+      preservedAnchorRef.current = null;
+    }
+  }, [respondents, respondentsLoading]);
 
   useEffect(() => {
     let isCancelled = false;
@@ -957,12 +1336,21 @@ function MailAutomationPage() {
     };
 
     fetchPage();
-    refreshMailData();
 
     return () => {
       isCancelled = true;
     };
-  }, [refreshMailData, surveyId]);
+  }, [surveyId]);
+
+  useEffect(() => {
+    fetchLogs();
+    fetchPending();
+    fetchCandidates();
+  }, [fetchCandidates, fetchLogs, fetchPending]);
+
+  useEffect(() => {
+    fetchRespondents();
+  }, [fetchRespondents]);
 
   if (pageLoading) {
     return (
@@ -1047,7 +1435,7 @@ function MailAutomationPage() {
 
             <RespondentInvitationPanel
               surveyId={surveyId}
-              onChanged={refreshMailData}
+              onChanged={refreshRespondentsAfterChange}
             />
 
             <RespondentsTable
@@ -1056,6 +1444,14 @@ function MailAutomationPage() {
               loading={respondentsLoading}
               error={respondentsError}
               onRefresh={fetchRespondents}
+              page={respondentPage}
+              size={respondentSize}
+              status={respondentStatus}
+              totalPages={respondentTotalPages}
+              totalElements={respondentTotalElements}
+              onPageChange={handleRespondentPageChange}
+              onSizeChange={handleRespondentSizeChange}
+              onStatusChange={handleRespondentStatusChange}
             />
 
             <ReminderPanel
@@ -1064,7 +1460,7 @@ function MailAutomationPage() {
               loading={candidatesLoading}
               error={candidatesError}
               onRefresh={fetchCandidates}
-              onQueued={refreshMailData}
+              onQueued={refreshRespondentsAfterChange}
             />
 
             <PendingEmailsPanel
@@ -1262,6 +1658,56 @@ const styles = {
     fontWeight: 700,
     marginBottom: "12px",
   },
+  statusMenuWrap: {
+    position: "relative",
+  },
+  statusSelectButton: {
+    width: "100%",
+    minHeight: "48px",
+    border: `1px solid ${COLORS.border}`,
+    borderRadius: "8px",
+    padding: "0 16px",
+    backgroundColor: COLORS.white,
+    color: COLORS.text,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "12px",
+    fontSize: "14px",
+    fontWeight: 600,
+    cursor: "pointer",
+    fontFamily: FONT_FAMILY,
+    boxShadow: "0 1px 2px rgba(16, 24, 40, 0.04)",
+  },
+  statusMenu: {
+    position: "absolute",
+    top: "calc(100% + 8px)",
+    left: 0,
+    right: 0,
+    padding: "6px",
+    border: `1px solid ${COLORS.border}`,
+    borderRadius: "10px",
+    backgroundColor: COLORS.white,
+    boxShadow: "0 12px 28px rgba(16, 24, 40, 0.16)",
+    zIndex: 6,
+  },
+  statusOption: {
+    width: "100%",
+    border: "none",
+    borderRadius: "7px",
+    backgroundColor: "transparent",
+    color: COLORS.text,
+    padding: "11px 12px",
+    textAlign: "left",
+    fontSize: "14px",
+    fontWeight: 600,
+    cursor: "pointer",
+    fontFamily: FONT_FAMILY,
+  },
+  statusOptionActive: {
+    backgroundColor: COLORS.primary,
+    color: COLORS.white,
+  },
   field: {
     display: "flex",
     flexDirection: "column",
@@ -1404,6 +1850,10 @@ const styles = {
     width: "100%",
     overflowX: "auto",
   },
+  tableWrapLoading: {
+    opacity: 0.65,
+    pointerEvents: "none",
+  },
   table: {
     width: "100%",
     borderCollapse: "collapse",
@@ -1504,6 +1954,119 @@ const styles = {
     alignItems: "center",
     gap: "8px",
     flexWrap: "wrap",
+  },
+  paginationFooter: {
+    display: "grid",
+    alignItems: "center",
+    gridTemplateColumns: "1fr auto 1fr",
+    gap: "14px",
+    marginTop: "16px",
+    paddingTop: "16px",
+    borderTop: `1px solid ${COLORS.border}`,
+  },
+  paginationControls: {
+    display: "flex",
+    alignItems: "center",
+    gap: "14px",
+    flexWrap: "wrap",
+    justifyContent: "center",
+  },
+  paginationButton: {
+    width: "24px",
+    height: "24px",
+    borderRadius: "999px",
+    border: "none",
+    backgroundColor: "transparent",
+    color: COLORS.muted,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 0,
+    fontSize: "13px",
+    fontWeight: 700,
+    cursor: "pointer",
+    fontFamily: FONT_FAMILY,
+    boxShadow: "none",
+  },
+  paginationButtonActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+    color: COLORS.white,
+    boxShadow: "0 6px 14px rgba(2, 62, 138, 0.24)",
+  },
+  paginationButtonDisabled: {
+    opacity: 0.45,
+    cursor: "not-allowed",
+  },
+  paginationTotal: {
+    color: COLORS.text,
+    fontSize: "13px",
+    fontWeight: 800,
+    justifySelf: "start",
+  },
+  pageSizeField: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    justifySelf: "end",
+  },
+  pageSizeMenuWrap: {
+    position: "relative",
+  },
+  pageSizeSelectButton: {
+    width: "76px",
+    minHeight: "36px",
+    border: `1px solid ${COLORS.border}`,
+    borderRadius: "8px",
+    padding: "6px 10px",
+    backgroundColor: COLORS.white,
+    color: COLORS.text,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "8px",
+    fontSize: "14px",
+    fontWeight: 700,
+    cursor: "pointer",
+    fontFamily: FONT_FAMILY,
+    boxShadow: "0 1px 2px rgba(16, 24, 40, 0.04)",
+  },
+  pageSizeChevron: {
+    width: "7px",
+    height: "7px",
+    borderRight: `2px solid ${COLORS.muted}`,
+    borderBottom: `2px solid ${COLORS.muted}`,
+    transform: "rotate(45deg) translateY(-2px)",
+    flexShrink: 0,
+  },
+  pageSizeMenu: {
+    position: "absolute",
+    right: 0,
+    bottom: "calc(100% + 8px)",
+    width: "76px",
+    padding: "5px",
+    border: `1px solid ${COLORS.border}`,
+    borderRadius: "10px",
+    backgroundColor: COLORS.white,
+    boxShadow: "0 12px 28px rgba(16, 24, 40, 0.16)",
+    zIndex: 5,
+  },
+  pageSizeOption: {
+    width: "100%",
+    border: "none",
+    borderRadius: "7px",
+    backgroundColor: "transparent",
+    color: COLORS.text,
+    padding: "8px 10px",
+    textAlign: "left",
+    fontSize: "14px",
+    fontWeight: 700,
+    cursor: "pointer",
+    fontFamily: FONT_FAMILY,
+  },
+  pageSizeOptionActive: {
+    backgroundColor: COLORS.primary,
+    color: COLORS.white,
   },
   statusBox: {
     padding: "24px",

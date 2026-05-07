@@ -55,6 +55,23 @@ export async function getRespondents(surveyId) {
   return data;
 }
 
+export async function getRespondentsPage(
+  surveyId,
+  { page = 0, size = 20, status = "ALL" } = {}
+) {
+  const { data } = await axiosInstance.get(
+    `/admin/surveys/${surveyId}/respondents/page`,
+    {
+      params: {
+        page,
+        size,
+        status,
+      },
+    }
+  );
+  return data;
+}
+
 export async function getReminderCandidates(surveyId) {
   const { data } = await axiosInstance.get(
     `/admin/surveys/${surveyId}/reminders/candidates`
