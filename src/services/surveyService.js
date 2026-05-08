@@ -1,1 +1,1 @@
-export { getSurveys } from "../api/surveyApi";
+export { getSurveys, getSurveysPage } from "../api/surveyApi";

@@ -10,9 +10,12 @@ import { useNavigate, useParams } from "react-router-dom";
 import { getApiErrorMessage } from "../../api/axiosInstance";
 import {
   getEmailLogs,
+  getEmailLogsPage,
   getMailConfig,
   getPendingEmails,
+  getPendingEmailsPage,
   getReminderCandidates,
+  getReminderCandidatesPage,
   getRespondents,
   getRespondentsPage,
   importRespondents,
@@ -142,6 +145,12 @@ function matchesRespondentStatus(respondent, status) {
   return true;
 }
 
+function matchesEmailLogFilters(log, status, emailType) {
+  const matchesStatus = !status || log.status === status;
+  const matchesType = !emailType || log.emailType === emailType;
+  return matchesStatus && matchesType;
+}
+
 function parseEmails(value) {
   const seen = new Set();
 
@@ -208,6 +217,20 @@ const RESPONDENT_STATUS_OPTIONS = [
   { value: "NOT_OPENED", label: "Acilmayanlar" },
   { value: "OPENED_NOT_SUBMITTED", label: "Acan ama tamamlamayan" },
   { value: "SUBMITTED", label: "Tamamlayanlar" },
+];
+
+const EMAIL_TYPE_OPTIONS = [
+  { value: "", label: "Tum mail turleri" },
+  { value: "INVITATION", label: "Davet" },
+  { value: "REMINDER", label: "Hatirlatma" },
+  { value: "WEEKLY_REPORT", label: "Haftalik Rapor" },
+];
+
+const EMAIL_STATUS_OPTIONS = [
+  { value: "", label: "Tum durumlar" },
+  { value: "PENDING", label: "Bekliyor" },
+  { value: "SENT", label: "Gonderildi" },
+  { value: "FAILED", label: "Basarisiz" },
 ];
 
 function getPaginationItems(currentPage, totalPages) {
@@ -778,27 +801,37 @@ function MailConfigPanel({ surveyId }) {
   );
 }
 
-function EmailLogsTable({ logs, loading, error, onRefresh }) {
-  const [emailTypeFilter, setEmailTypeFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [searchText, setSearchText] = useState("");
-
-  const filteredLogs = useMemo(() => {
-    const normalizedSearch = searchText.trim().toLowerCase();
-
-    return logs.filter((log) => {
-      const matchesType =
-        !emailTypeFilter || log.emailType === emailTypeFilter;
-      const matchesStatus = !statusFilter || log.status === statusFilter;
-      const matchesSearch =
-        !normalizedSearch ||
-        [log.toEmail, log.subject, log.errorMessage]
-          .filter(Boolean)
-          .some((value) => value.toLowerCase().includes(normalizedSearch));
-
-      return matchesType && matchesStatus && matchesSearch;
-    });
-  }, [emailTypeFilter, logs, searchText, statusFilter]);
+function EmailLogsTable({
+  logs,
+  loading,
+  error,
+  onRefresh,
+  page,
+  size,
+  status,
+  emailType,
+  totalPages,
+  totalElements,
+  onPageChange,
+  onSizeChange,
+  onStatusChange,
+  onEmailTypeChange,
+}) {
+  const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
+  const [isTypeMenuOpen, setIsTypeMenuOpen] = useState(false);
+  const [isSizeMenuOpen, setIsSizeMenuOpen] = useState(false);
+  const pageSizeButtonRef = useRef(null);
+  const displayTotalPages = totalPages || 1;
+  const paginationItems = getPaginationItems(page, displayTotalPages);
+  const isFirstPage = page === 0;
+  const isLastPage = page + 1 >= displayTotalPages;
+  const pageSizeOptions = [5, 10, 20];
+  const selectedStatusLabel =
+    EMAIL_STATUS_OPTIONS.find((option) => option.value === status)?.label ||
+    "Tum durumlar";
+  const selectedTypeLabel =
+    EMAIL_TYPE_OPTIONS.find((option) => option.value === emailType)?.label ||
+    "Tum mail turleri";
 
   return (
     <section style={styles.card}>
@@ -807,113 +840,327 @@ function EmailLogsTable({ logs, loading, error, onRefresh }) {
           <h2 style={styles.cardTitle}>Email Loglari</h2>
           <p style={styles.cardSubtitle}>Bu ankete ait mail gecmisi</p>
         </div>
-        <button type="button" style={styles.secondaryButton} onClick={onRefresh}>
-          Yenile
-        </button>
+        <div style={styles.headerButtons}>
+          <span style={styles.countPill}>{totalElements}</span>
+          <button
+            type="button"
+            style={styles.secondaryButton}
+            onClick={onRefresh}
+            disabled={loading}
+          >
+            Yenile
+          </button>
+        </div>
       </div>
 
       <InlineMessage type="error">{error}</InlineMessage>
 
-      {loading ? (
+      <div style={styles.filterGrid}>
+        <div
+          style={styles.field}
+          onBlur={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget)) {
+              setIsTypeMenuOpen(false);
+            }
+          }}
+        >
+          <span style={styles.label}>Mail turu</span>
+          <div style={styles.statusMenuWrap}>
+            <button
+              type="button"
+              style={styles.statusSelectButton}
+              onClick={() => setIsTypeMenuOpen((isOpen) => !isOpen)}
+              disabled={loading}
+              aria-haspopup="listbox"
+              aria-expanded={isTypeMenuOpen}
+            >
+              <span>{selectedTypeLabel}</span>
+              <span style={styles.pageSizeChevron} aria-hidden="true" />
+            </button>
+
+            {isTypeMenuOpen && (
+              <div style={styles.statusMenu} role="listbox">
+                {EMAIL_TYPE_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    style={{
+                      ...styles.statusOption,
+                      ...(option.value === emailType
+                        ? styles.statusOptionActive
+                        : null),
+                    }}
+                    role="option"
+                    aria-selected={option.value === emailType}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => {
+                      setIsTypeMenuOpen(false);
+                      onEmailTypeChange(option.value);
+                    }}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div
+          style={styles.field}
+          onBlur={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget)) {
+              setIsStatusMenuOpen(false);
+            }
+          }}
+        >
+          <span style={styles.label}>Durum</span>
+          <div style={styles.statusMenuWrap}>
+            <button
+              type="button"
+              style={styles.statusSelectButton}
+              onClick={() => setIsStatusMenuOpen((isOpen) => !isOpen)}
+              disabled={loading}
+              aria-haspopup="listbox"
+              aria-expanded={isStatusMenuOpen}
+            >
+              <span>{selectedStatusLabel}</span>
+              <span style={styles.pageSizeChevron} aria-hidden="true" />
+            </button>
+
+            {isStatusMenuOpen && (
+              <div style={styles.statusMenu} role="listbox">
+                {EMAIL_STATUS_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    style={{
+                      ...styles.statusOption,
+                      ...(option.value === status
+                        ? styles.statusOptionActive
+                        : null),
+                    }}
+                    role="option"
+                    aria-selected={option.value === status}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => {
+                      setIsStatusMenuOpen(false);
+                      onStatusChange(option.value);
+                    }}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {loading && logs.length === 0 ? (
         <div style={styles.mutedText}>Yukleniyor...</div>
       ) : logs.length === 0 ? (
         <div style={styles.emptyState}>Email logu bulunamadi.</div>
       ) : (
-        <div>
-          <div style={styles.filterGrid}>
-            <label style={styles.field}>
-              <span style={styles.label}>Mail tipi</span>
-              <select
-                style={styles.input}
-                value={emailTypeFilter}
-                onChange={(event) => setEmailTypeFilter(event.target.value)}
-              >
-                <option value="">Tum tipler</option>
-                <option value="INVITATION">Invitation</option>
-                <option value="REMINDER">Reminder</option>
-                <option value="WEEKLY_REPORT">Weekly Report</option>
-              </select>
-            </label>
-
-            <label style={styles.field}>
-              <span style={styles.label}>Durum</span>
-              <select
-                style={styles.input}
-                value={statusFilter}
-                onChange={(event) => setStatusFilter(event.target.value)}
-              >
-                <option value="">Tum durumlar</option>
-                <option value="PENDING">Pending</option>
-                <option value="SENT">Sent</option>
-                <option value="FAILED">Failed</option>
-              </select>
-            </label>
-
-            <label style={styles.field}>
-              <span style={styles.label}>Arama</span>
-              <input
-                style={styles.input}
-                type="search"
-                value={searchText}
-                onChange={(event) => setSearchText(event.target.value)}
-                placeholder="E-posta, konu veya hata"
-              />
-            </label>
-          </div>
-
-          <div style={styles.filterSummary}>
-            {filteredLogs.length} / {logs.length} kayit gosteriliyor
-          </div>
-
-          {filteredLogs.length === 0 ? (
-            <div style={styles.emptyState}>Filtreye uygun email logu yok.</div>
-          ) : (
-            <div style={styles.tableWrap}>
-              <table style={styles.table}>
-                <thead>
-                  <tr>
-                    <th style={styles.th}>Tip</th>
-                    <th style={styles.th}>Alici</th>
-                    <th style={styles.th}>Konu</th>
-                    <th style={styles.th}>Durum</th>
-                    <th style={styles.th}>Tarih</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredLogs.map((log) => (
-                    <tr key={log.id} style={styles.tr}>
-                      <td style={styles.td}>{log.emailType || "-"}</td>
-                      <td style={styles.td}>{log.toEmail || "-"}</td>
-                      <td style={styles.td}>{log.subject || "-"}</td>
-                      <td style={styles.td}>
-                        <span style={getStatusStyle(log.status)}>
-                          {log.status}
-                        </span>
-                        {log.errorMessage && (
-                          <div style={styles.errorDetail}>
-                            {log.errorMessage}
-                          </div>
-                        )}
-                      </td>
-                      <td style={styles.td}>
-                        {formatDateTime(log.createdAt || log.updatedAt)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+        <div
+          style={{
+            ...styles.tableWrap,
+            ...(loading ? styles.tableWrapLoading : null),
+          }}
+        >
+          <table style={styles.table}>
+            <thead>
+              <tr>
+                <th style={styles.th}>Alici</th>
+                <th style={styles.th}>Tip</th>
+                <th style={styles.th}>Durum</th>
+                <th style={styles.th}>Konu</th>
+                <th style={styles.th}>Olusturma</th>
+                <th style={styles.th}>Guncelleme</th>
+                <th style={styles.th}>Hata</th>
+              </tr>
+            </thead>
+            <tbody>
+              {logs.map((log, index) => (
+                <tr key={log.id || `${log.toEmail}-${index}`} style={styles.tr}>
+                  <td style={styles.td}>{log.toEmail || "-"}</td>
+                  <td style={styles.td}>{log.emailType || "-"}</td>
+                  <td style={styles.td}>
+                    <span style={getStatusStyle(log.status)}>
+                      {log.status || "-"}
+                    </span>
+                  </td>
+                  <td style={styles.td}>{log.subject || "-"}</td>
+                  <td style={styles.td}>{formatDateTime(log.createdAt)}</td>
+                  <td style={styles.td}>{formatDateTime(log.updatedAt)}</td>
+                  <td style={styles.td}>
+                    {log.errorMessage ? (
+                      <div style={styles.errorDetail}>{log.errorMessage}</div>
+                    ) : (
+                      "-"
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
+
+      <div style={styles.paginationFooter}>
+        <span style={styles.paginationTotal}>Toplam: {totalElements}</span>
+
+        <div style={styles.paginationControls}>
+          <button
+            type="button"
+            style={{
+              ...styles.paginationButton,
+              ...(isFirstPage || loading ? styles.paginationButtonDisabled : null),
+            }}
+            disabled={isFirstPage || loading}
+            onClick={(event) => onPageChange(0, event.currentTarget)}
+            aria-label="Ilk sayfa"
+            title="Ilk sayfa"
+          >
+            &lt;&lt;
+          </button>
+          <button
+            type="button"
+            style={{
+              ...styles.paginationButton,
+              ...(isFirstPage || loading ? styles.paginationButtonDisabled : null),
+            }}
+            disabled={isFirstPage || loading}
+            onClick={(event) => onPageChange(page - 1, event.currentTarget)}
+            aria-label="Onceki sayfa"
+            title="Onceki sayfa"
+          >
+            &lt;
+          </button>
+
+          {paginationItems.map((item) => (
+            <button
+              key={item}
+              type="button"
+              style={{
+                ...styles.paginationButton,
+                ...(item === page ? styles.paginationButtonActive : null),
+                ...(loading ? styles.paginationButtonDisabled : null),
+              }}
+              disabled={loading}
+              onClick={(event) => onPageChange(item, event.currentTarget)}
+              aria-current={item === page ? "page" : undefined}
+            >
+              {item + 1}
+            </button>
+          ))}
+
+          <button
+            type="button"
+            style={{
+              ...styles.paginationButton,
+              ...(isLastPage || loading ? styles.paginationButtonDisabled : null),
+            }}
+            disabled={isLastPage || loading}
+            onClick={(event) => onPageChange(page + 1, event.currentTarget)}
+            aria-label="Sonraki sayfa"
+            title="Sonraki sayfa"
+          >
+            &gt;
+          </button>
+          <button
+            type="button"
+            style={{
+              ...styles.paginationButton,
+              ...(isLastPage || loading ? styles.paginationButtonDisabled : null),
+            }}
+            disabled={isLastPage || loading}
+            onClick={(event) =>
+              onPageChange(displayTotalPages - 1, event.currentTarget)
+            }
+            aria-label="Son sayfa"
+            title="Son sayfa"
+          >
+            &gt;&gt;
+          </button>
+        </div>
+
+        <div
+          style={styles.pageSizeField}
+          onBlur={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget)) {
+              setIsSizeMenuOpen(false);
+            }
+          }}
+        >
+          <span style={styles.label}>Sayfada goster</span>
+          <div style={styles.pageSizeMenuWrap}>
+            <button
+              ref={pageSizeButtonRef}
+              type="button"
+              style={styles.pageSizeSelectButton}
+              onClick={() => setIsSizeMenuOpen((isOpen) => !isOpen)}
+              disabled={loading}
+              aria-haspopup="listbox"
+              aria-expanded={isSizeMenuOpen}
+            >
+              <span>{size}</span>
+              <span style={styles.pageSizeChevron} aria-hidden="true" />
+            </button>
+
+            {isSizeMenuOpen && (
+              <div style={styles.pageSizeMenu} role="listbox">
+                {pageSizeOptions.map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    style={{
+                      ...styles.pageSizeOption,
+                      ...(option === size ? styles.pageSizeOptionActive : null),
+                    }}
+                    role="option"
+                    aria-selected={option === size}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => {
+                      setIsSizeMenuOpen(false);
+                      onSizeChange(option, pageSizeButtonRef.current);
+                    }}
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </section>
   );
 }
 
-function PendingEmailsPanel({ pendingEmails, loading, error, onRefresh, onSent }) {
+function PendingEmailsPanel({
+  pendingEmails,
+  loading,
+  error,
+  onRefresh,
+  onSent,
+  page,
+  size,
+  totalPages,
+  totalElements,
+  onPageChange,
+  onSizeChange,
+}) {
   const [sending, setSending] = useState(false);
   const [message, setMessage] = useState("");
   const [sendError, setSendError] = useState("");
+  const [isSizeMenuOpen, setIsSizeMenuOpen] = useState(false);
+  const pageSizeButtonRef = useRef(null);
+  const displayTotalPages = totalPages || 1;
+  const paginationItems = getPaginationItems(page, displayTotalPages);
+  const isFirstPage = page === 0;
+  const isLastPage = page + 1 >= displayTotalPages;
+  const pageSizeOptions = [5, 10, 20];
 
   const handleSendPending = async () => {
     if (sending) return;
@@ -945,6 +1192,7 @@ function PendingEmailsPanel({ pendingEmails, loading, error, onRefresh, onSent }
           <p style={styles.cardSubtitle}>Gonderim bekleyen mailler</p>
         </div>
         <div style={styles.headerButtons}>
+          <span style={styles.countPill}>{totalElements}</span>
           <button type="button" style={styles.secondaryButton} onClick={onRefresh}>
             Yenile
           </button>
@@ -967,28 +1215,194 @@ function PendingEmailsPanel({ pendingEmails, loading, error, onRefresh, onSent }
       ) : pendingEmails.length === 0 ? (
         <div style={styles.emptyState}>Bekleyen email yok.</div>
       ) : (
-        <div style={styles.compactList}>
-          {pendingEmails.map((email) => (
-            <div key={email.id} style={styles.queueItem}>
-              <div>
-                <div style={styles.queueTitle}>{email.toEmail || "-"}</div>
-                <div style={styles.queueMeta}>{email.subject || email.emailType}</div>
-              </div>
-              <span style={getStatusStyle(email.status || "PENDING")}>
-                {email.status || "PENDING"}
-              </span>
-            </div>
-          ))}
+        <div
+          style={{
+            ...styles.tableWrap,
+            ...(loading ? styles.tableWrapLoading : null),
+          }}
+        >
+          <table style={styles.table}>
+            <thead>
+              <tr>
+                <th style={styles.th}>Survey ID</th>
+                <th style={styles.th}>Alici</th>
+                <th style={styles.th}>Tip</th>
+                <th style={styles.th}>Konu</th>
+                <th style={styles.th}>Olusturma</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pendingEmails.map((email, index) => (
+                <tr key={email.id || `${email.toEmail}-${index}`} style={styles.tr}>
+                  <td style={styles.td}>{email.surveyId || "-"}</td>
+                  <td style={styles.td}>{email.toEmail || "-"}</td>
+                  <td style={styles.td}>{email.emailType || "-"}</td>
+                  <td style={styles.td}>{email.subject || "-"}</td>
+                  <td style={styles.td}>{formatDateTime(email.createdAt)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
+
+      <div style={styles.paginationFooter}>
+        <span style={styles.paginationTotal}>
+          Toplam bekleyen: {totalElements}
+        </span>
+
+        <div style={styles.paginationControls}>
+          <button
+            type="button"
+            style={{
+              ...styles.paginationButton,
+              ...(isFirstPage || loading ? styles.paginationButtonDisabled : null),
+            }}
+            disabled={isFirstPage || loading}
+            onClick={(event) => onPageChange(0, event.currentTarget)}
+            aria-label="Ilk sayfa"
+            title="Ilk sayfa"
+          >
+            &lt;&lt;
+          </button>
+          <button
+            type="button"
+            style={{
+              ...styles.paginationButton,
+              ...(isFirstPage || loading ? styles.paginationButtonDisabled : null),
+            }}
+            disabled={isFirstPage || loading}
+            onClick={(event) => onPageChange(page - 1, event.currentTarget)}
+            aria-label="Onceki sayfa"
+            title="Onceki sayfa"
+          >
+            &lt;
+          </button>
+
+          {paginationItems.map((item) => (
+            <button
+              key={item}
+              type="button"
+              style={{
+                ...styles.paginationButton,
+                ...(item === page ? styles.paginationButtonActive : null),
+                ...(loading ? styles.paginationButtonDisabled : null),
+              }}
+              disabled={loading}
+              onClick={(event) => onPageChange(item, event.currentTarget)}
+              aria-current={item === page ? "page" : undefined}
+            >
+              {item + 1}
+            </button>
+          ))}
+
+          <button
+            type="button"
+            style={{
+              ...styles.paginationButton,
+              ...(isLastPage || loading ? styles.paginationButtonDisabled : null),
+            }}
+            disabled={isLastPage || loading}
+            onClick={(event) => onPageChange(page + 1, event.currentTarget)}
+            aria-label="Sonraki sayfa"
+            title="Sonraki sayfa"
+          >
+            &gt;
+          </button>
+          <button
+            type="button"
+            style={{
+              ...styles.paginationButton,
+              ...(isLastPage || loading ? styles.paginationButtonDisabled : null),
+            }}
+            disabled={isLastPage || loading}
+            onClick={(event) =>
+              onPageChange(displayTotalPages - 1, event.currentTarget)
+            }
+            aria-label="Son sayfa"
+            title="Son sayfa"
+          >
+            &gt;&gt;
+          </button>
+        </div>
+
+        <div
+          style={styles.pageSizeField}
+          onBlur={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget)) {
+              setIsSizeMenuOpen(false);
+            }
+          }}
+        >
+          <span style={styles.label}>Sayfada goster</span>
+          <div style={styles.pageSizeMenuWrap}>
+            <button
+              ref={pageSizeButtonRef}
+              type="button"
+              style={styles.pageSizeSelectButton}
+              onClick={() => setIsSizeMenuOpen((isOpen) => !isOpen)}
+              disabled={loading}
+              aria-haspopup="listbox"
+              aria-expanded={isSizeMenuOpen}
+            >
+              <span>{size}</span>
+              <span style={styles.pageSizeChevron} aria-hidden="true" />
+            </button>
+
+            {isSizeMenuOpen && (
+              <div style={styles.pageSizeMenu} role="listbox">
+                {pageSizeOptions.map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    style={{
+                      ...styles.pageSizeOption,
+                      ...(option === size ? styles.pageSizeOptionActive : null),
+                    }}
+                    role="option"
+                    aria-selected={option === size}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => {
+                      setIsSizeMenuOpen(false);
+                      onSizeChange(option, pageSizeButtonRef.current);
+                    }}
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </section>
   );
 }
 
-function ReminderPanel({ surveyId, candidates, loading, error, onRefresh, onQueued }) {
+function ReminderPanel({
+  surveyId,
+  candidates,
+  loading,
+  error,
+  onRefresh,
+  onQueued,
+  page,
+  size,
+  totalPages,
+  totalElements,
+  onPageChange,
+  onSizeChange,
+}) {
   const [queueing, setQueueing] = useState(false);
   const [message, setMessage] = useState("");
   const [queueError, setQueueError] = useState("");
+  const [isSizeMenuOpen, setIsSizeMenuOpen] = useState(false);
+  const pageSizeButtonRef = useRef(null);
+  const displayTotalPages = totalPages || 1;
+  const paginationItems = getPaginationItems(page, displayTotalPages);
+  const isFirstPage = page === 0;
+  const isLastPage = page + 1 >= displayTotalPages;
+  const pageSizeOptions = [5, 10, 20];
 
   const handleQueue = async () => {
     if (queueing) return;
@@ -1020,6 +1434,7 @@ function ReminderPanel({ surveyId, candidates, loading, error, onRefresh, onQueu
           <p style={styles.cardSubtitle}>Hatirlatma maili icin uygun kisiler</p>
         </div>
         <div style={styles.headerButtons}>
+          <span style={styles.countPill}>{totalElements}</span>
           <button type="button" style={styles.secondaryButton} onClick={onRefresh}>
             Yenile
           </button>
@@ -1037,29 +1452,189 @@ function ReminderPanel({ surveyId, candidates, loading, error, onRefresh, onQueu
       <InlineMessage type="error">{error || queueError}</InlineMessage>
       <InlineMessage type="success">{message}</InlineMessage>
 
-      {loading ? (
+      {loading && candidates.length === 0 ? (
         <div style={styles.mutedText}>Yukleniyor...</div>
       ) : candidates.length === 0 ? (
         <div style={styles.emptyState}>Reminder adayi yok.</div>
       ) : (
-        <div style={styles.compactList}>
-          {candidates.map((candidate, index) => (
-            <div key={candidate.id || candidate.respondentId || index} style={styles.queueItem}>
-              <div>
-                <div style={styles.queueTitle}>
-                  {candidate.email || candidate.toEmail || candidate.respondentEmail || "-"}
-                </div>
-                <div style={styles.queueMeta}>
-                  Son reminder: {formatDateTime(candidate.lastReminderAt)}
-                </div>
-              </div>
-              <span style={styles.countPill}>
-                {candidate.reminderCount ?? candidate.sentReminderCount ?? 0}
-              </span>
-            </div>
-          ))}
+        <div
+          style={{
+            ...styles.tableWrap,
+            ...(loading ? styles.tableWrapLoading : null),
+          }}
+        >
+          <table style={styles.table}>
+            <thead>
+              <tr>
+                <th style={styles.th}>E-posta</th>
+                <th style={styles.th}>Durum</th>
+                <th style={styles.th}>Acilma</th>
+                <th style={styles.th}>Tamamlama</th>
+                <th style={styles.th}>Reminder</th>
+                <th style={styles.th}>Son Reminder</th>
+              </tr>
+            </thead>
+            <tbody>
+              {candidates.map((candidate, index) => (
+                <tr
+                  key={candidate.id || candidate.respondentId || index}
+                  style={styles.tr}
+                >
+                  <td style={styles.td}>
+                    {candidate.email ||
+                      candidate.toEmail ||
+                      candidate.respondentEmail ||
+                      "-"}
+                  </td>
+                  <td style={styles.td}>{candidate.status || "-"}</td>
+                  <td style={styles.td}>{formatDateTime(candidate.openedAt)}</td>
+                  <td style={styles.td}>{formatDateTime(candidate.submittedAt)}</td>
+                  <td style={styles.td}>
+                    <span style={styles.countPill}>
+                      {candidate.reminderCount ??
+                        candidate.sentReminderCount ??
+                        0}
+                    </span>
+                  </td>
+                  <td style={styles.td}>
+                    {formatDateTime(
+                      candidate.lastRemindedAt || candidate.lastReminderAt
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
+
+      <div style={styles.paginationFooter}>
+        <span style={styles.paginationTotal}>Toplam aday: {totalElements}</span>
+
+        <div style={styles.paginationControls}>
+          <button
+            type="button"
+            style={{
+              ...styles.paginationButton,
+              ...(isFirstPage || loading ? styles.paginationButtonDisabled : null),
+            }}
+            disabled={isFirstPage || loading}
+            onClick={(event) => onPageChange(0, event.currentTarget)}
+            aria-label="Ilk sayfa"
+            title="Ilk sayfa"
+          >
+            &lt;&lt;
+          </button>
+          <button
+            type="button"
+            style={{
+              ...styles.paginationButton,
+              ...(isFirstPage || loading ? styles.paginationButtonDisabled : null),
+            }}
+            disabled={isFirstPage || loading}
+            onClick={(event) => onPageChange(page - 1, event.currentTarget)}
+            aria-label="Onceki sayfa"
+            title="Onceki sayfa"
+          >
+            &lt;
+          </button>
+
+          {paginationItems.map((item) => (
+            <button
+              key={item}
+              type="button"
+              style={{
+                ...styles.paginationButton,
+                ...(item === page ? styles.paginationButtonActive : null),
+                ...(loading ? styles.paginationButtonDisabled : null),
+              }}
+              disabled={loading}
+              onClick={(event) => onPageChange(item, event.currentTarget)}
+              aria-current={item === page ? "page" : undefined}
+            >
+              {item + 1}
+            </button>
+          ))}
+
+          <button
+            type="button"
+            style={{
+              ...styles.paginationButton,
+              ...(isLastPage || loading ? styles.paginationButtonDisabled : null),
+            }}
+            disabled={isLastPage || loading}
+            onClick={(event) => onPageChange(page + 1, event.currentTarget)}
+            aria-label="Sonraki sayfa"
+            title="Sonraki sayfa"
+          >
+            &gt;
+          </button>
+          <button
+            type="button"
+            style={{
+              ...styles.paginationButton,
+              ...(isLastPage || loading ? styles.paginationButtonDisabled : null),
+            }}
+            disabled={isLastPage || loading}
+            onClick={(event) =>
+              onPageChange(displayTotalPages - 1, event.currentTarget)
+            }
+            aria-label="Son sayfa"
+            title="Son sayfa"
+          >
+            &gt;&gt;
+          </button>
+        </div>
+
+        <div
+          style={styles.pageSizeField}
+          onBlur={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget)) {
+              setIsSizeMenuOpen(false);
+            }
+          }}
+        >
+          <span style={styles.label}>Sayfada goster</span>
+          <div style={styles.pageSizeMenuWrap}>
+            <button
+              ref={pageSizeButtonRef}
+              type="button"
+              style={styles.pageSizeSelectButton}
+              onClick={() => setIsSizeMenuOpen((isOpen) => !isOpen)}
+              disabled={loading}
+              aria-haspopup="listbox"
+              aria-expanded={isSizeMenuOpen}
+            >
+              <span>{size}</span>
+              <span style={styles.pageSizeChevron} aria-hidden="true" />
+            </button>
+
+            {isSizeMenuOpen && (
+              <div style={styles.pageSizeMenu} role="listbox">
+                {pageSizeOptions.map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    style={{
+                      ...styles.pageSizeOption,
+                      ...(option === size ? styles.pageSizeOptionActive : null),
+                    }}
+                    role="option"
+                    aria-selected={option === size}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => {
+                      setIsSizeMenuOpen(false);
+                      onSizeChange(option, pageSizeButtonRef.current);
+                    }}
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </section>
   );
 }
@@ -1116,6 +1691,7 @@ function MailAutomationPage() {
   const preservedAnchorRef = useRef(null);
   const [survey, setSurvey] = useState(null);
   const [logs, setLogs] = useState([]);
+  const [emailLogs, setEmailLogs] = useState([]);
   const [pendingEmails, setPendingEmails] = useState([]);
   const [candidates, setCandidates] = useState([]);
   const [respondents, setRespondents] = useState([]);
@@ -1124,13 +1700,27 @@ function MailAutomationPage() {
   const [respondentStatus, setRespondentStatus] = useState("ALL");
   const [respondentTotalPages, setRespondentTotalPages] = useState(0);
   const [respondentTotalElements, setRespondentTotalElements] = useState(0);
+  const [candidatePage, setCandidatePage] = useState(0);
+  const [candidateSize, setCandidateSize] = useState(5);
+  const [candidateTotalPages, setCandidateTotalPages] = useState(0);
+  const [candidateTotalElements, setCandidateTotalElements] = useState(0);
+  const [emailLogPage, setEmailLogPage] = useState(0);
+  const [emailLogSize, setEmailLogSize] = useState(5);
+  const [emailLogStatus, setEmailLogStatus] = useState("");
+  const [emailLogType, setEmailLogType] = useState("");
+  const [emailLogTotalPages, setEmailLogTotalPages] = useState(0);
+  const [emailLogTotalElements, setEmailLogTotalElements] = useState(0);
+  const [pendingPage, setPendingPage] = useState(0);
+  const [pendingSize, setPendingSize] = useState(5);
+  const [pendingTotalPages, setPendingTotalPages] = useState(0);
+  const [pendingTotalElements, setPendingTotalElements] = useState(0);
   const [pageLoading, setPageLoading] = useState(true);
-  const [logsLoading, setLogsLoading] = useState(false);
+  const [emailLogsLoading, setEmailLogsLoading] = useState(false);
   const [pendingLoading, setPendingLoading] = useState(false);
   const [candidatesLoading, setCandidatesLoading] = useState(false);
   const [respondentsLoading, setRespondentsLoading] = useState(false);
   const [pageError, setPageError] = useState("");
-  const [logsError, setLogsError] = useState("");
+  const [emailLogsError, setEmailLogsError] = useState("");
   const [pendingError, setPendingError] = useState("");
   const [candidatesError, setCandidatesError] = useState("");
   const [respondentsError, setRespondentsError] = useState("");
@@ -1147,42 +1737,126 @@ function MailAutomationPage() {
 
   const fetchLogs = useCallback(async () => {
     try {
-      setLogsLoading(true);
-      setLogsError("");
       setLogs(normalizeList(await getEmailLogs(surveyId)));
     } catch (err) {
       setLogs([]);
-      setLogsError(getApiErrorMessage(err, "Email loglari alinamadi."));
-    } finally {
-      setLogsLoading(false);
+      console.error(err);
     }
   }, [surveyId]);
+
+  const fetchEmailLogs = useCallback(async () => {
+    try {
+      setEmailLogsLoading(true);
+      setEmailLogsError("");
+      const data = await getEmailLogsPage(surveyId, {
+        page: emailLogPage,
+        size: emailLogSize,
+        status: emailLogStatus,
+        emailType: emailLogType,
+      });
+      setEmailLogs(data.content || []);
+      setEmailLogTotalPages(data.totalPages || 0);
+      setEmailLogTotalElements(data.totalElements || 0);
+    } catch {
+      try {
+        const fallbackLogs = normalizeList(await getEmailLogs(surveyId));
+        const filteredLogs = fallbackLogs.filter((log) =>
+          matchesEmailLogFilters(log, emailLogStatus, emailLogType)
+        );
+        const startIndex = emailLogPage * emailLogSize;
+
+        setEmailLogs(filteredLogs.slice(startIndex, startIndex + emailLogSize));
+        setEmailLogTotalPages(Math.ceil(filteredLogs.length / emailLogSize));
+        setEmailLogTotalElements(filteredLogs.length);
+        setEmailLogsError("");
+      } catch (fallbackErr) {
+        setEmailLogs([]);
+        setEmailLogTotalPages(0);
+        setEmailLogTotalElements(0);
+        setEmailLogsError(
+          getApiErrorMessage(fallbackErr, "Email loglari alinamadi.")
+        );
+      }
+    } finally {
+      setEmailLogsLoading(false);
+    }
+  }, [
+    emailLogPage,
+    emailLogSize,
+    emailLogStatus,
+    emailLogType,
+    surveyId,
+  ]);
 
   const fetchPending = useCallback(async () => {
     try {
       setPendingLoading(true);
       setPendingError("");
-      setPendingEmails(normalizeList(await getPendingEmails()));
-    } catch (err) {
-      setPendingEmails([]);
-      setPendingError(getApiErrorMessage(err, "Pending queue alinamadi."));
+      const data = await getPendingEmailsPage({
+        page: pendingPage,
+        size: pendingSize,
+      });
+      setPendingEmails(data.content || []);
+      setPendingTotalPages(data.totalPages || 0);
+      setPendingTotalElements(data.totalElements || 0);
+    } catch {
+      try {
+        const fallbackPending = normalizeList(await getPendingEmails());
+        const startIndex = pendingPage * pendingSize;
+        setPendingEmails(
+          fallbackPending.slice(startIndex, startIndex + pendingSize)
+        );
+        setPendingTotalPages(Math.ceil(fallbackPending.length / pendingSize));
+        setPendingTotalElements(fallbackPending.length);
+        setPendingError("");
+      } catch (fallbackErr) {
+        setPendingEmails([]);
+        setPendingTotalPages(0);
+        setPendingTotalElements(0);
+        setPendingError(getApiErrorMessage(fallbackErr, "Pending queue alinamadi."));
+      }
     } finally {
       setPendingLoading(false);
     }
-  }, []);
+  }, [pendingPage, pendingSize]);
 
   const fetchCandidates = useCallback(async () => {
     try {
       setCandidatesLoading(true);
       setCandidatesError("");
-      setCandidates(normalizeList(await getReminderCandidates(surveyId)));
-    } catch (err) {
-      setCandidates([]);
-      setCandidatesError(getApiErrorMessage(err, "Reminder adaylari alinamadi."));
+      const data = await getReminderCandidatesPage(surveyId, {
+        page: candidatePage,
+        size: candidateSize,
+      });
+      setCandidates(data.content || []);
+      setCandidateTotalPages(data.totalPages || 0);
+      setCandidateTotalElements(data.totalElements || 0);
+    } catch {
+      try {
+        const fallbackCandidates = normalizeList(
+          await getReminderCandidates(surveyId)
+        );
+        const startIndex = candidatePage * candidateSize;
+        setCandidates(
+          fallbackCandidates.slice(startIndex, startIndex + candidateSize)
+        );
+        setCandidateTotalPages(
+          Math.ceil(fallbackCandidates.length / candidateSize)
+        );
+        setCandidateTotalElements(fallbackCandidates.length);
+        setCandidatesError("");
+      } catch (fallbackErr) {
+        setCandidates([]);
+        setCandidateTotalPages(0);
+        setCandidateTotalElements(0);
+        setCandidatesError(
+          getApiErrorMessage(fallbackErr, "Reminder adaylari alinamadi.")
+        );
+      }
     } finally {
       setCandidatesLoading(false);
     }
-  }, [surveyId]);
+  }, [candidatePage, candidateSize, surveyId]);
 
   const fetchRespondents = useCallback(async () => {
     try {
@@ -1229,15 +1903,28 @@ function MailAutomationPage() {
 
   const refreshMailData = useCallback(() => {
     fetchLogs();
+    fetchEmailLogs();
     fetchPending();
     fetchCandidates();
     fetchRespondents();
-  }, [fetchCandidates, fetchLogs, fetchPending, fetchRespondents]);
+  }, [
+    fetchCandidates,
+    fetchEmailLogs,
+    fetchLogs,
+    fetchPending,
+    fetchRespondents,
+  ]);
 
   const refreshRespondentsAfterChange = useCallback(() => {
     fetchLogs();
+    fetchEmailLogs();
     fetchPending();
-    fetchCandidates();
+
+    if (candidatePage === 0) {
+      fetchCandidates();
+    } else {
+      setCandidatePage(0);
+    }
 
     if (respondentPage === 0) {
       fetchRespondents();
@@ -1246,9 +1933,11 @@ function MailAutomationPage() {
     }
   }, [
     fetchCandidates,
+    fetchEmailLogs,
     fetchLogs,
     fetchPending,
     fetchRespondents,
+    candidatePage,
     respondentPage,
   ]);
 
@@ -1287,6 +1976,73 @@ function MailAutomationPage() {
     [preserveScrollPosition]
   );
 
+  const handleCandidateSizeChange = useCallback(
+    (nextSize, anchor) => {
+      preserveScrollPosition(() => {
+        setCandidateSize(nextSize);
+        setCandidatePage(0);
+      }, anchor);
+    },
+    [preserveScrollPosition]
+  );
+
+  const handleCandidatePageChange = useCallback(
+    (nextPage, anchor) => {
+      preserveScrollPosition(() => {
+        setCandidatePage(nextPage);
+      }, anchor);
+    },
+    [preserveScrollPosition]
+  );
+
+  const handleEmailLogStatusChange = useCallback((nextStatus) => {
+    setEmailLogStatus(nextStatus);
+    setEmailLogPage(0);
+  }, []);
+
+  const handleEmailLogTypeChange = useCallback((nextType) => {
+    setEmailLogType(nextType);
+    setEmailLogPage(0);
+  }, []);
+
+  const handleEmailLogSizeChange = useCallback(
+    (nextSize, anchor) => {
+      preserveScrollPosition(() => {
+        setEmailLogSize(nextSize);
+        setEmailLogPage(0);
+      }, anchor);
+    },
+    [preserveScrollPosition]
+  );
+
+  const handleEmailLogPageChange = useCallback(
+    (nextPage, anchor) => {
+      preserveScrollPosition(() => {
+        setEmailLogPage(nextPage);
+      }, anchor);
+    },
+    [preserveScrollPosition]
+  );
+
+  const handlePendingSizeChange = useCallback(
+    (nextSize, anchor) => {
+      preserveScrollPosition(() => {
+        setPendingSize(nextSize);
+        setPendingPage(0);
+      }, anchor);
+    },
+    [preserveScrollPosition]
+  );
+
+  const handlePendingPageChange = useCallback(
+    (nextPage, anchor) => {
+      preserveScrollPosition(() => {
+        setPendingPage(nextPage);
+      }, anchor);
+    },
+    [preserveScrollPosition]
+  );
+
   useLayoutEffect(() => {
     if (preservedScrollYRef.current == null && !preservedAnchorRef.current) {
       return;
@@ -1307,11 +2063,25 @@ function MailAutomationPage() {
       });
     }
 
-    if (!respondentsLoading) {
+    if (
+      !respondentsLoading &&
+      !candidatesLoading &&
+      !emailLogsLoading &&
+      !pendingLoading
+    ) {
       preservedScrollYRef.current = null;
       preservedAnchorRef.current = null;
     }
-  }, [respondents, respondentsLoading]);
+  }, [
+    candidates,
+    candidatesLoading,
+    emailLogs,
+    emailLogsLoading,
+    pendingEmails,
+    pendingLoading,
+    respondents,
+    respondentsLoading,
+  ]);
 
   useEffect(() => {
     let isCancelled = false;
@@ -1351,6 +2121,10 @@ function MailAutomationPage() {
   useEffect(() => {
     fetchRespondents();
   }, [fetchRespondents]);
+
+  useEffect(() => {
+    fetchEmailLogs();
+  }, [fetchEmailLogs]);
 
   if (pageLoading) {
     return (
@@ -1461,6 +2235,12 @@ function MailAutomationPage() {
               error={candidatesError}
               onRefresh={fetchCandidates}
               onQueued={refreshRespondentsAfterChange}
+              page={candidatePage}
+              size={candidateSize}
+              totalPages={candidateTotalPages}
+              totalElements={candidateTotalElements}
+              onPageChange={handleCandidatePageChange}
+              onSizeChange={handleCandidateSizeChange}
             />
 
             <PendingEmailsPanel
@@ -1469,13 +2249,29 @@ function MailAutomationPage() {
               error={pendingError}
               onRefresh={fetchPending}
               onSent={refreshMailData}
+              page={pendingPage}
+              size={pendingSize}
+              totalPages={pendingTotalPages}
+              totalElements={pendingTotalElements}
+              onPageChange={handlePendingPageChange}
+              onSizeChange={handlePendingSizeChange}
             />
 
             <EmailLogsTable
-              logs={logs}
-              loading={logsLoading}
-              error={logsError}
-              onRefresh={fetchLogs}
+              logs={emailLogs}
+              loading={emailLogsLoading}
+              error={emailLogsError}
+              onRefresh={fetchEmailLogs}
+              page={emailLogPage}
+              size={emailLogSize}
+              status={emailLogStatus}
+              emailType={emailLogType}
+              totalPages={emailLogTotalPages}
+              totalElements={emailLogTotalElements}
+              onPageChange={handleEmailLogPageChange}
+              onSizeChange={handleEmailLogSizeChange}
+              onStatusChange={handleEmailLogStatusChange}
+              onEmailTypeChange={handleEmailLogTypeChange}
             />
           </div>
         </div>

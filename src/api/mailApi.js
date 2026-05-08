@@ -22,8 +22,36 @@ export async function getEmailLogs(surveyId) {
   return data;
 }
 
+export async function getEmailLogsPage(
+  surveyId,
+  { page = 0, size = 20, status = "", emailType = "" } = {}
+) {
+  const { data } = await axiosInstance.get(
+    `/admin/surveys/${surveyId}/emails/page`,
+    {
+      params: {
+        page,
+        size,
+        ...(status ? { status } : {}),
+        ...(emailType ? { emailType } : {}),
+      },
+    }
+  );
+  return data;
+}
+
 export async function getPendingEmails() {
   const { data } = await axiosInstance.get("/admin/emails/pending");
+  return data;
+}
+
+export async function getPendingEmailsPage({ page = 0, size = 20 } = {}) {
+  const { data } = await axiosInstance.get("/admin/emails/pending/page", {
+    params: {
+      page,
+      size,
+    },
+  });
   return data;
 }
 
@@ -75,6 +103,22 @@ export async function getRespondentsPage(
 export async function getReminderCandidates(surveyId) {
   const { data } = await axiosInstance.get(
     `/admin/surveys/${surveyId}/reminders/candidates`
+  );
+  return data;
+}
+
+export async function getReminderCandidatesPage(
+  surveyId,
+  { page = 0, size = 20 } = {}
+) {
+  const { data } = await axiosInstance.get(
+    `/admin/surveys/${surveyId}/reminders/candidates/page`,
+    {
+      params: {
+        page,
+        size,
+      },
+    }
   );
   return data;
 }

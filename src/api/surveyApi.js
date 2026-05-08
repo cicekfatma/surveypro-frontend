@@ -5,6 +5,25 @@ export async function getSurveys(params = { page: 0, size: 50 }) {
   return data.content || [];
 }
 
+export async function getSurveysPage({
+  page = 0,
+  size = 10,
+  isActive = "",
+  createdFrom = "",
+  createdTo = "",
+} = {}) {
+  const { data } = await axiosInstance.get("/admin/surveys/page", {
+    params: {
+      page,
+      size,
+      ...(isActive !== "" ? { isActive } : {}),
+      ...(createdFrom ? { createdFrom } : {}),
+      ...(createdTo ? { createdTo } : {}),
+    },
+  });
+  return data;
+}
+
 export async function createSurvey(payload) {
   const { data } = await axiosInstance.post("/admin/surveys", payload);
   return data;

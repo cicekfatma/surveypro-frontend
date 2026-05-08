@@ -38,7 +38,7 @@ function Header({ onCreateSurvey }) {
 
       <div style={styles.headerRight}>
         <button style={styles.newSurveyButton} onClick={onCreateSurvey}>
-          Yeni Anket
+          Yeni Anket Olustur
         </button>
 
         <button

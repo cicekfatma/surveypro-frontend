@@ -56,9 +56,9 @@ export const styles = {
     color: "#ffffff",
     border: "none",
     borderRadius: "999px",
-    minHeight: "42px",
-    padding: "0 20px",
-    fontSize: "14px",
+    minHeight: "36px",
+    padding: "0 16px",
+    fontSize: "13px",
     fontWeight: 600,
     cursor: "pointer",
     boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
@@ -118,7 +118,7 @@ export const styles = {
     padding: "34px 20px 60px",
   },
   listWrapper: {
-    maxWidth: "620px",
+    maxWidth: "1120px",
     margin: "0 auto",
     display: "flex",
     flexDirection: "column",
@@ -164,6 +164,70 @@ export const styles = {
     fontFamily: FONT_FAMILY,
   },
 
+  dropdownWrap: {
+    position: "relative",
+  },
+
+  dropdownButton: {
+    width: "100%",
+    minHeight: "40px",
+    borderRadius: "8px",
+    border: "1px solid #d9dee5",
+    padding: "0 14px",
+    fontSize: "13px",
+    color: "#28283A",
+    backgroundColor: "#ffffff",
+    boxSizing: "border-box",
+    fontFamily: FONT_FAMILY,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "12px",
+    cursor: "pointer",
+    boxShadow: "0 1px 2px rgba(16, 24, 40, 0.04)",
+  },
+
+  dropdownChevron: {
+    width: "7px",
+    height: "7px",
+    borderRight: "2px solid #616371",
+    borderBottom: "2px solid #616371",
+    transform: "rotate(45deg) translateY(-2px)",
+    flexShrink: 0,
+  },
+
+  dropdownMenu: {
+    position: "absolute",
+    top: "calc(100% + 8px)",
+    left: 0,
+    right: 0,
+    padding: "6px",
+    border: "1px solid #d9dee5",
+    borderRadius: "10px",
+    backgroundColor: "#ffffff",
+    boxShadow: "0 12px 28px rgba(16, 24, 40, 0.16)",
+    zIndex: 8,
+  },
+
+  dropdownOption: {
+    width: "100%",
+    border: "none",
+    borderRadius: "7px",
+    backgroundColor: "transparent",
+    color: "#28283A",
+    padding: "10px 12px",
+    textAlign: "left",
+    fontSize: "13px",
+    fontWeight: 600,
+    cursor: "pointer",
+    fontFamily: FONT_FAMILY,
+  },
+
+  dropdownOptionActive: {
+    backgroundColor: "#023E8A",
+    color: "#ffffff",
+  },
+
   filterActions: {
     display: "flex",
     gap: "10px",
@@ -187,13 +251,13 @@ export const styles = {
   },
 
   filterResetButton: {
-    backgroundColor: BABY_BLUE,
-    color: "#7A4A00",
-    border: "1px solid #F2D392",
+    backgroundColor: "#F48220",
+    color: "#ffffff",
+    border: "none",
     borderRadius: "999px",
-    minHeight: "40px",
-    padding: "0 18px",
-    fontSize: "13px",
+    minHeight: "34px",
+    padding: "0 14px",
+    fontSize: "12px",
     fontWeight: 600,
     cursor: "pointer",
     display: "inline-flex",
@@ -239,6 +303,16 @@ export const styles = {
     justifyContent: "center",
   },
 
+  tableActionButton: {
+    backgroundColor: "#E5F0FF",
+    color: "#023E8A",
+    minWidth: "auto",
+    minHeight: "32px",
+    padding: "0 10px",
+    fontSize: "11px",
+    flexShrink: 0,
+  },
+
   emptyCard: {
     backgroundColor: "#ffffff",
     borderRadius: "8px",
@@ -246,6 +320,259 @@ export const styles = {
     border: "1px solid #d9dee5",
     color: "#444",
     textAlign: "center",
+  },
+
+  listCard: {
+    backgroundColor: "#ffffff",
+    borderRadius: "8px",
+    padding: "18px",
+    border: "1px solid #d9dee5",
+    boxShadow: "0 1px 3px rgba(16, 24, 40, 0.08)",
+  },
+
+  listCardHeader: {
+    display: "flex",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: "16px",
+    marginBottom: "16px",
+  },
+
+  listCardTitle: {
+    margin: 0,
+    color: "#28283A",
+    fontSize: "18px",
+    lineHeight: 1.2,
+    fontWeight: 700,
+  },
+
+  listCardSubtitle: {
+    marginTop: "6px",
+    color: "#616371",
+    fontSize: "13px",
+  },
+
+  tableLoading: {
+    minHeight: "180px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  tableWrap: {
+    width: "100%",
+    overflowX: "auto",
+  },
+
+  tableWrapLoading: {
+    opacity: 0.65,
+    pointerEvents: "none",
+  },
+
+  table: {
+    width: "100%",
+    borderCollapse: "collapse",
+    fontSize: "13px",
+    tableLayout: "fixed",
+  },
+
+  titleColumn: {
+    width: "14%",
+  },
+
+  descriptionColumn: {
+    width: "25%",
+  },
+
+  targetColumn: {
+    width: "8%",
+  },
+
+  statusColumn: {
+    width: "9%",
+  },
+
+  actionsColumn: {
+    width: "44%",
+  },
+
+  th: {
+    textAlign: "center",
+    padding: "10px",
+    color: "#616371",
+    borderBottom: "1px solid #d9dee5",
+    whiteSpace: "nowrap",
+  },
+
+  tr: {
+    borderBottom: "1px solid #d9dee5",
+  },
+
+  td: {
+    padding: "12px 10px",
+    color: "#28283A",
+    verticalAlign: "top",
+    wordBreak: "break-word",
+    textAlign: "center",
+  },
+
+  tableActions: {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    flexWrap: "wrap",
+    justifyContent: "center",
+  },
+
+  statusPill: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: "999px",
+    padding: "4px 9px",
+    fontSize: "11px",
+    fontWeight: 800,
+    whiteSpace: "nowrap",
+  },
+
+  statusActive: {
+    backgroundColor: "#ECFDF3",
+    color: "#087443",
+  },
+
+  statusPassive: {
+    backgroundColor: "#F4F4F5",
+    color: "#616371",
+  },
+
+  countPill: {
+    minWidth: "30px",
+    height: "30px",
+    borderRadius: "999px",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#EEF4FF",
+    color: "#023E8A",
+    fontSize: "13px",
+    fontWeight: 800,
+    flexShrink: 0,
+  },
+
+  paginationFooter: {
+    display: "grid",
+    alignItems: "center",
+    gridTemplateColumns: "1fr auto 1fr",
+    gap: "14px",
+    marginTop: "16px",
+    paddingTop: "16px",
+    borderTop: "1px solid #d9dee5",
+  },
+
+  paginationTotal: {
+    color: "#28283A",
+    fontSize: "13px",
+    fontWeight: 800,
+    justifySelf: "start",
+  },
+
+  paginationControls: {
+    display: "flex",
+    alignItems: "center",
+    gap: "14px",
+    flexWrap: "wrap",
+    justifyContent: "center",
+  },
+
+  paginationButton: {
+    width: "24px",
+    height: "24px",
+    borderRadius: "999px",
+    border: "none",
+    backgroundColor: "transparent",
+    color: "#616371",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 0,
+    fontSize: "13px",
+    fontWeight: 700,
+    cursor: "pointer",
+    fontFamily: FONT_FAMILY,
+    boxShadow: "none",
+  },
+
+  paginationButtonActive: {
+    backgroundColor: "#023E8A",
+    color: "#ffffff",
+    boxShadow: "0 6px 14px rgba(2, 62, 138, 0.24)",
+  },
+
+  paginationButtonDisabled: {
+    opacity: 0.45,
+    cursor: "not-allowed",
+  },
+
+  pageSizeField: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    justifySelf: "end",
+  },
+
+  pageSizeMenuWrap: {
+    position: "relative",
+  },
+
+  pageSizeSelectButton: {
+    width: "76px",
+    minHeight: "36px",
+    border: "1px solid #d9dee5",
+    borderRadius: "8px",
+    backgroundColor: "#ffffff",
+    color: "#28283A",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "8px",
+    padding: "6px 10px",
+    fontSize: "14px",
+    fontWeight: 700,
+    fontFamily: FONT_FAMILY,
+    cursor: "pointer",
+    boxShadow: "0 1px 2px rgba(16, 24, 40, 0.04)",
+  },
+
+  pageSizeMenu: {
+    position: "absolute",
+    right: 0,
+    bottom: "calc(100% + 8px)",
+    width: "76px",
+    padding: "5px",
+    border: "1px solid #d9dee5",
+    borderRadius: "10px",
+    backgroundColor: "#ffffff",
+    boxShadow: "0 12px 28px rgba(16, 24, 40, 0.16)",
+    zIndex: 8,
+  },
+
+  pageSizeOption: {
+    width: "100%",
+    border: "none",
+    borderRadius: "7px",
+    backgroundColor: "transparent",
+    color: "#28283A",
+    padding: "8px 10px",
+    textAlign: "left",
+    fontSize: "14px",
+    fontWeight: 700,
+    cursor: "pointer",
+    fontFamily: FONT_FAMILY,
+  },
+
+  pageSizeOptionActive: {
+    backgroundColor: "#023E8A",
+    color: "#ffffff",
   },
 
   statusBox: {
