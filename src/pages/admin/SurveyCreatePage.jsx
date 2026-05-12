@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { getApiErrorMessage } from "../../api/axiosInstance";
+import {
+  getDisplayErrorMessages,
+  getApiErrorMessage,
+} from "../../api/errorMessage";
 import {
   createSurvey,
   getSurveyDetail,
@@ -121,6 +124,7 @@ function SurveyCreatePage() {
   const [questions, setQuestions] = useState([createEmptyQuestion()]);
 
   const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState("info");
 
   const handleLogout = () => {
     if (!isEditMode) {
@@ -141,6 +145,7 @@ function SurveyCreatePage() {
       try {
         setLoading(true);
         setMessage("");
+        setMessageType("info");
         const data = await getSurveyDetail(surveyId);
 
         if (isCancelled) {
@@ -177,6 +182,7 @@ function SurveyCreatePage() {
         console.error(err);
         if (!isCancelled) {
           setMessage(getApiErrorMessage(err, "Anket detayi alinamadi."));
+          setMessageType("error");
         }
       } finally {
         if (!isCancelled) {
@@ -407,12 +413,14 @@ function SurveyCreatePage() {
     if (saving) return;
 
     setMessage("");
+    setMessageType("info");
     const nextQuestionErrors = buildQuestionErrors(questions);
 
     setQuestionErrors(nextQuestionErrors);
 
     if (Object.keys(nextQuestionErrors).length > 0) {
       setMessage("Medya alanlarindaki hatalari duzeltmeden kaydedemezsiniz.");
+      setMessageType("error");
       return;
     }
 
@@ -441,6 +449,7 @@ function SurveyCreatePage() {
       if (isEditMode) {
         await updateSurvey(surveyId, body);
         setMessage("Anket basariyla guncellendi.");
+        setMessageType("success");
       } else {
         await createSurvey({
           ownerUserId: 1,
@@ -448,11 +457,13 @@ function SurveyCreatePage() {
           ...body,
         });
         setMessage("Anket basariyla olusturuldu.");
+        setMessageType("success");
         resetForm();
       }
     } catch (err) {
       console.error(err);
       setMessage(getApiErrorMessage(err, "Hata olustu."));
+      setMessageType("error");
     } finally {
       setSaving(false);
     }
@@ -910,7 +921,16 @@ function SurveyCreatePage() {
               </button>
             </div>
 
-            {message && <p style={styles.messageText}>{message}</p>}
+            {message &&
+              (messageType === "error" ? (
+                <div style={styles.errorMessageBox} role="alert">
+                  {getDisplayErrorMessages(message).map((item, index) => (
+                    <div key={`${item}-${index}`}>{item}</div>
+                  ))}
+                </div>
+              ) : (
+                <p style={styles.messageText}>{message}</p>
+              ))}
           </div>
         </div>
       </div>
@@ -1334,6 +1354,18 @@ const styles = {
     textAlign: "center",
     fontWeight: 700,
     color: COLORS.primary,
+  },
+  errorMessageBox: {
+    marginTop: "14px",
+    backgroundColor: "#FEF3F2",
+    border: "1px solid #FECDCA",
+    borderRadius: "8px",
+    padding: "12px 14px",
+    color: "#B42318",
+    fontSize: "14px",
+    fontWeight: 700,
+    lineHeight: 1.5,
+    fontFamily: FONT_FAMILY,
   },
   statusBox: {
     padding: "24px",

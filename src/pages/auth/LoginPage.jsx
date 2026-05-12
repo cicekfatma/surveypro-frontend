@@ -2,6 +2,10 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { login } from "../../api/authApi";
 import {
+  getDisplayErrorMessages,
+  getApiErrorMessage,
+} from "../../api/errorMessage";
+import {
   AUTH_REDIRECT_REASONS,
   saveAuthSession,
 } from "../../auth/session";
@@ -235,7 +239,7 @@ function LoginPage() {
       navigate("/admin/surveys", { replace: true });
     } catch (err) {
       console.error(err);
-      setMessage("E-posta veya sifre hatali.");
+      setMessage(getApiErrorMessage(err, "E-posta veya şifre hatalı."));
     } finally {
       setLoading(false);
     }
@@ -351,7 +355,13 @@ function LoginPage() {
               {loading ? "Giri\u015f Yap\u0131l\u0131yor..." : "Giri\u015f Yap"}
             </button>
 
-            {message && <p style={styles.message}>{message}</p>}
+            {message && (
+              <div style={styles.message} role="alert">
+                {getDisplayErrorMessages(message).map((item, index) => (
+                  <div key={`${item}-${index}`}>{item}</div>
+                ))}
+              </div>
+            )}
           </div>
         </section>
       </div>
@@ -522,6 +532,10 @@ const styles = {
   },
   message: {
     marginTop: "16px",
+    backgroundColor: "#FEF3F2",
+    border: "1px solid #FECDCA",
+    borderRadius: "8px",
+    padding: "10px 12px",
     fontSize: "14px",
     color: "#B42318",
     textAlign: "center",

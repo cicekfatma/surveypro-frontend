@@ -4,6 +4,7 @@ import {
   clearAuthSession,
   redirectToLogin,
 } from "../auth/session";
+export { getApiErrorMessage } from "./errorMessage";
 
 const axiosInstance = axios.create({
   baseURL: "http://localhost:8080/api",
@@ -54,14 +55,5 @@ axiosInstance.interceptors.response.use(
     return Promise.reject(error);
   }
 );
-
-export function getApiErrorMessage(error, fallbackMessage) {
-  return (
-    error?.response?.data?.message ||
-    error?.response?.data?.error ||
-    error?.message ||
-    fallbackMessage
-  );
-}
 
 export default axiosInstance;

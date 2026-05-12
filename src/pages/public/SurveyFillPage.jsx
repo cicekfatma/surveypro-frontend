@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
-import { getApiErrorMessage } from "../../api/axiosInstance";
+import {
+  getDisplayErrorMessages,
+  getApiErrorMessage,
+} from "../../api/errorMessage";
 import { getPublicSurvey, submitPublicSurvey } from "../../api/surveyApi";
 import surveyProLogo from "../../assets/surveypro-logo.png";
 
@@ -53,6 +56,7 @@ function SurveyFillPage({ publicKey, respondentTokenFromUrl = "", onBack }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState("info");
 
   useEffect(() => {
     const fetchPublicSurvey = async () => {
@@ -77,6 +81,7 @@ function SurveyFillPage({ publicKey, respondentTokenFromUrl = "", onBack }) {
       } catch (err) {
         console.error(err);
         setMessage(getApiErrorMessage(err, "Anket yuklenemedi."));
+        setMessageType("error");
       } finally {
         setLoading(false);
       }
@@ -183,6 +188,7 @@ function SurveyFillPage({ publicKey, respondentTokenFromUrl = "", onBack }) {
 
     setSaving(true);
     setMessage("");
+    setMessageType("info");
 
     try {
       const response = await submitPublicSurvey(publicKey, {
@@ -197,9 +203,11 @@ function SurveyFillPage({ publicKey, respondentTokenFromUrl = "", onBack }) {
       }
 
       setMessage(response?.message || "Cevabiniz basariyla kaydedildi.");
+      setMessageType("success");
     } catch (err) {
       console.error(err);
       setMessage(getApiErrorMessage(err, "Hata olustu."));
+      setMessageType("error");
     } finally {
       setSaving(false);
     }
@@ -210,7 +218,19 @@ function SurveyFillPage({ publicKey, respondentTokenFromUrl = "", onBack }) {
   }
 
   if (!survey) {
-    return <h2 style={{ padding: "20px" }}>Anket bulunamadi.</h2>;
+    return (
+      <div style={{ padding: "20px", fontFamily: FONT_FAMILY }}>
+        {message ? (
+          <div style={styles.errorMessageBox} role="alert">
+            {getDisplayErrorMessages(message).map((item, index) => (
+              <div key={`${item}-${index}`}>{item}</div>
+            ))}
+          </div>
+        ) : (
+          <h2>Anket bulunamadi.</h2>
+        )}
+      </div>
+    );
   }
 
   return (
@@ -412,7 +432,16 @@ function SurveyFillPage({ publicKey, respondentTokenFromUrl = "", onBack }) {
             </button>
           </div>
 
-          {message && <p style={styles.message}>{message}</p>}
+          {message &&
+            (messageType === "error" ? (
+              <div style={styles.errorMessageBox} role="alert">
+                {getDisplayErrorMessages(message).map((item, index) => (
+                  <div key={`${item}-${index}`}>{item}</div>
+                ))}
+              </div>
+            ) : (
+              <p style={styles.message}>{message}</p>
+            ))}
         </div>
       </div>
     </div>
@@ -674,6 +703,18 @@ const styles = {
     textAlign: "center",
     fontWeight: 700,
     color: COLORS.primary,
+    fontFamily: FONT_FAMILY,
+  },
+  errorMessageBox: {
+    marginTop: "16px",
+    backgroundColor: "#FEF3F2",
+    border: "1px solid #FECDCA",
+    borderRadius: "8px",
+    padding: "12px 14px",
+    color: "#B42318",
+    fontSize: "14px",
+    fontWeight: 700,
+    lineHeight: 1.5,
     fontFamily: FONT_FAMILY,
   },
 };
