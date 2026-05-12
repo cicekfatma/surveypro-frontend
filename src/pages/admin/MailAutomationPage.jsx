@@ -19,9 +19,11 @@ import {
   getRespondents,
   getRespondentsPage,
   importRespondents,
+  previewRespondentImport,
   queueInvitations,
   queueReminderEmails,
   queueWeeklyReport,
+  retryFailedEmail,
   saveMailConfig,
   sendPendingEmails,
 } from "../../api/mailApi";
@@ -154,16 +156,20 @@ function matchesEmailLogFilters(log, status, emailType) {
 function parseEmails(value) {
   const seen = new Set();
 
-  return value
-    .split(/[\s,;]+/)
-    .map((email) => email.trim())
-    .filter(Boolean)
+  return parseEmailEntries(value)
     .filter((email) => {
       const normalized = email.toLowerCase();
       if (seen.has(normalized)) return false;
       seen.add(normalized);
       return true;
     });
+}
+
+function parseEmailEntries(value) {
+  return value
+    .split(/[\s,;]+/)
+    .map((email) => email.trim())
+    .filter(Boolean);
 }
 
 function findInvitationLog(respondent, logs) {
@@ -361,6 +367,14 @@ function RespondentsTable({
           }}
         >
           <table style={styles.table}>
+            <colgroup>
+              <col style={styles.respondentEmailColumn} />
+              <col style={styles.respondentStatusColumn} />
+              <col style={styles.respondentInviteColumn} />
+              <col style={styles.respondentDateColumn} />
+              <col style={styles.respondentDateColumn} />
+              <col style={styles.respondentReminderColumn} />
+            </colgroup>
             <thead>
               <tr>
                 <th style={styles.th}>E-posta</th>
@@ -565,24 +579,68 @@ function RespondentsTable({
 
 function RespondentInvitationPanel({ surveyId, onChanged }) {
   const [emailText, setEmailText] = useState("");
+  const [preview, setPreview] = useState(null);
+  const [selectedEmails, setSelectedEmails] = useState([]);
+  const [previewing, setPreviewing] = useState(false);
   const [importing, setImporting] = useState(false);
   const [queueing, setQueueing] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
   const emails = useMemo(() => parseEmails(emailText), [emailText]);
+  const emailEntries = useMemo(() => parseEmailEntries(emailText), [emailText]);
+  const previewImportableEmails = preview?.importableEmails || [];
+  const previewInvalidEmails = preview?.invalidEmails || [];
+  const previewDuplicateEmails = preview?.duplicateEmails || [];
+  const previewExistingEmails = preview?.existingEmails || [];
+
+  const handleEmailTextChange = (event) => {
+    setEmailText(event.target.value);
+    setPreview(null);
+    setSelectedEmails([]);
+    setMessage("");
+    setError("");
+  };
+
+  const handlePreview = async () => {
+    if (previewing || emailEntries.length === 0) return;
+
+    try {
+      setPreviewing(true);
+      setMessage("");
+      setError("");
+      const data = await previewRespondentImport(surveyId, emailEntries);
+      const importableEmails = data?.importableEmails || [];
+      setPreview(data);
+      setSelectedEmails(importableEmails);
+      setMessage("Onizleme tamamlandi.");
+    } catch (err) {
+      setPreview(null);
+      setSelectedEmails([]);
+      setError(getApiErrorMessage(err, "Onizleme alinamadi."));
+    } finally {
+      setPreviewing(false);
+    }
+  };
+
+  const removeSelectedEmail = (email) => {
+    setSelectedEmails((current) => current.filter((item) => item !== email));
+  };
 
   const handleImport = async () => {
-    if (importing || emails.length === 0) return;
+    if (importing || selectedEmails.length === 0) return;
 
     try {
       setImporting(true);
       setMessage("");
       setError("");
-      const response = await importRespondents(surveyId, emails);
+      const response = await importRespondents(surveyId, selectedEmails);
       const importedCount =
-        response?.importedCount ?? response?.createdCount ?? emails.length;
+        response?.importedCount ?? response?.createdCount ?? selectedEmails.length;
       setMessage(`${importedCount} katilimci ice aktarildi.`);
+      setEmailText("");
+      setPreview(null);
+      setSelectedEmails([]);
       onChanged?.();
     } catch (err) {
       setError(getApiErrorMessage(err, "Katilimcilar ice aktarilamadi."));
@@ -626,24 +684,92 @@ function RespondentInvitationPanel({ surveyId, onChanged }) {
         <span style={styles.countPill}>{emails.length}</span>
       </div>
 
-      <label style={styles.field}>
-        <span style={styles.label}>E-posta listesi</span>
-        <textarea
-          style={styles.textarea}
-          value={emailText}
-          onChange={(event) => setEmailText(event.target.value)}
-          placeholder="ornek1@sirket.com&#10;ornek2@sirket.com"
-        />
-      </label>
+      <div style={styles.importLayout}>
+        <label style={styles.importField}>
+          <span style={styles.label}>E-posta listesi</span>
+          <textarea
+            style={styles.importTextarea}
+            value={emailText}
+            onChange={handleEmailTextChange}
+            placeholder="ornek1@sirket.com&#10;ornek2@sirket.com"
+          />
+        </label>
+      </div>
 
-      <div style={styles.actionsRow}>
+      {preview && (
+        <div style={styles.previewPanel}>
+          <div style={styles.previewSummaryGrid}>
+            <div style={styles.previewSummaryItem}>
+              <strong style={styles.previewSummaryValue}>
+                {preview.importableCount ?? previewImportableEmails.length}
+              </strong>
+              <span style={styles.previewSummaryLabel}>kisi eklenebilir</span>
+            </div>
+            <div style={styles.previewSummaryItem}>
+              <strong style={styles.previewSummaryValue}>
+                {preview.existingCount ?? previewExistingEmails.length}
+              </strong>
+              <span style={styles.previewSummaryLabel}>kisi zaten listede</span>
+            </div>
+            <div style={styles.previewSummaryItem}>
+              <strong style={styles.previewSummaryValue}>
+                {preview.duplicateCount ?? previewDuplicateEmails.length}
+              </strong>
+              <span style={styles.previewSummaryLabel}>tekrar eden e-posta</span>
+            </div>
+            <div style={styles.previewSummaryItem}>
+              <strong style={styles.previewSummaryValue}>
+                {preview.invalidCount ?? previewInvalidEmails.length}
+              </strong>
+              <span style={styles.previewSummaryLabel}>hatali e-posta</span>
+            </div>
+          </div>
+
+          <div style={styles.previewSections}>
+            <PreviewEmailSection
+              title="Eklenecek kisiler"
+              emails={selectedEmails}
+              emptyText="Eklenecek kisi yok."
+              removable
+              onRemove={removeSelectedEmail}
+            />
+            <PreviewEmailSection
+              title="Zaten ekli olanlar"
+              emails={previewExistingEmails}
+              emptyText="Zaten ekli e-posta yok."
+            />
+            <PreviewEmailSection
+              title="Tekrar edenler"
+              emails={previewDuplicateEmails}
+              emptyText="Tekrar eden e-posta yok."
+            />
+            <PreviewEmailSection
+              title="Hatali e-postalar"
+              emails={previewInvalidEmails}
+              emptyText="Hatali e-posta yok."
+            />
+          </div>
+        </div>
+      )}
+
+      <div style={styles.importActionsRow}>
         <button
           type="button"
           style={styles.primaryButton}
-          onClick={handleImport}
-          disabled={importing || emails.length === 0}
+          onClick={preview ? handleImport : handlePreview}
+          disabled={
+            preview
+              ? importing || selectedEmails.length === 0
+              : previewing || emailEntries.length === 0
+          }
         >
-          {importing ? "Ice aktariliyor..." : "Katilimcilari Ice Aktar"}
+          {preview
+            ? importing
+              ? "Ekleniyor..."
+              : `Secili ${selectedEmails.length} Katilimciyi Ekle`
+            : previewing
+              ? "Onizleniyor..."
+              : "Onizle"}
         </button>
         <button
           type="button"
@@ -658,6 +784,42 @@ function RespondentInvitationPanel({ surveyId, onChanged }) {
       <InlineMessage type="success">{message}</InlineMessage>
       <InlineMessage type="error">{error}</InlineMessage>
     </section>
+  );
+}
+
+function PreviewEmailSection({
+  title,
+  emails,
+  emptyText,
+  removable = false,
+  onRemove,
+}) {
+  return (
+    <div style={styles.previewSection}>
+      <div style={styles.previewSectionTitle}>{title}</div>
+      {emails.length === 0 ? (
+        <div style={styles.previewEmpty}>{emptyText}</div>
+      ) : (
+        <div style={styles.previewEmailList}>
+          {emails.map((email) => (
+            <div key={email} style={styles.previewEmailRow}>
+              <span style={styles.previewEmailText}>{email}</span>
+              {removable && (
+                <button
+                  type="button"
+                  style={styles.previewRemoveButton}
+                  onClick={() => onRemove?.(email)}
+                  aria-label={`${email} kaldir`}
+                  title="Kaldir"
+                >
+                  x
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -816,10 +978,14 @@ function EmailLogsTable({
   onSizeChange,
   onStatusChange,
   onEmailTypeChange,
+  onRetried,
 }) {
   const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
   const [isTypeMenuOpen, setIsTypeMenuOpen] = useState(false);
   const [isSizeMenuOpen, setIsSizeMenuOpen] = useState(false);
+  const [retryingId, setRetryingId] = useState(null);
+  const [retryMessage, setRetryMessage] = useState("");
+  const [retryError, setRetryError] = useState("");
   const pageSizeButtonRef = useRef(null);
   const displayTotalPages = totalPages || 1;
   const paginationItems = getPaginationItems(page, displayTotalPages);
@@ -832,6 +998,25 @@ function EmailLogsTable({
   const selectedTypeLabel =
     EMAIL_TYPE_OPTIONS.find((option) => option.value === emailType)?.label ||
     "Tum mail turleri";
+
+  const handleRetryEmail = async (emailLogId) => {
+    if (!emailLogId || retryingId) return;
+
+    try {
+      setRetryingId(emailLogId);
+      setRetryMessage("");
+      setRetryError("");
+      await retryFailedEmail(emailLogId);
+      setRetryMessage("Mail tekrar kuyruğa alındı.");
+      onRetried?.();
+    } catch (err) {
+      setRetryError(
+        getApiErrorMessage(err, "Mail tekrar kuyruğa alınamadı.")
+      );
+    } finally {
+      setRetryingId(null);
+    }
+  };
 
   return (
     <section style={styles.card}>
@@ -854,6 +1039,8 @@ function EmailLogsTable({
       </div>
 
       <InlineMessage type="error">{error}</InlineMessage>
+      <InlineMessage type="success">{retryMessage}</InlineMessage>
+      <InlineMessage type="error">{retryError}</InlineMessage>
 
       <div style={styles.filterGrid}>
         <div
@@ -978,6 +1165,7 @@ function EmailLogsTable({
                 <th style={styles.th}>Olusturma</th>
                 <th style={styles.th}>Guncelleme</th>
                 <th style={styles.th}>Hata</th>
+                <th style={styles.th}>Aksiyon</th>
               </tr>
             </thead>
             <tbody>
@@ -996,6 +1184,22 @@ function EmailLogsTable({
                   <td style={styles.td}>
                     {log.errorMessage ? (
                       <div style={styles.errorDetail}>{log.errorMessage}</div>
+                    ) : (
+                      "-"
+                    )}
+                  </td>
+                  <td style={styles.td}>
+                    {log.status === "FAILED" ? (
+                      <button
+                        type="button"
+                        style={styles.retryButton}
+                        disabled={retryingId === log.id}
+                        onClick={() => handleRetryEmail(log.id)}
+                      >
+                        {retryingId === log.id
+                          ? "Aliniyor..."
+                          : "Tekrar Kuyruga Al"}
+                      </button>
                     ) : (
                       "-"
                     )}
@@ -1941,6 +2145,12 @@ function MailAutomationPage() {
     respondentPage,
   ]);
 
+  const refreshAfterEmailRetry = useCallback(() => {
+    fetchEmailLogs();
+    fetchPending();
+    fetchLogs();
+  }, [fetchEmailLogs, fetchLogs, fetchPending]);
+
   const handleRespondentStatusChange = useCallback((nextStatus) => {
     setRespondentStatus(nextStatus);
     setRespondentPage(0);
@@ -2272,6 +2482,7 @@ function MailAutomationPage() {
               onSizeChange={handleEmailLogSizeChange}
               onStatusChange={handleEmailLogStatusChange}
               onEmailTypeChange={handleEmailLogTypeChange}
+              onRetried={refreshAfterEmailRetry}
             />
           </div>
         </div>
@@ -2375,7 +2586,7 @@ const styles = {
     padding: "24px 20px 50px",
   },
   container: {
-    maxWidth: "1040px",
+    maxWidth: "1280px",
     margin: "0 auto",
     textAlign: "left",
   },
@@ -2509,6 +2720,118 @@ const styles = {
     flexDirection: "column",
     gap: "8px",
   },
+  importLayout: {
+    maxWidth: "820px",
+  },
+  importField: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "8px",
+  },
+  importActionsRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    marginTop: "16px",
+    maxWidth: "820px",
+    flexWrap: "wrap",
+  },
+  previewPanel: {
+    marginTop: "18px",
+    border: `1px solid ${COLORS.border}`,
+    borderRadius: "8px",
+    padding: "14px",
+    backgroundColor: "#FCFCFD",
+  },
+  previewSummaryGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+    gap: "10px",
+    marginBottom: "14px",
+  },
+  previewSummaryItem: {
+    border: `1px solid ${COLORS.border}`,
+    borderRadius: "8px",
+    padding: "10px 12px",
+    backgroundColor: COLORS.white,
+  },
+  previewSummaryValue: {
+    display: "block",
+    color: COLORS.primary,
+    fontSize: "20px",
+    lineHeight: 1,
+    fontWeight: 800,
+  },
+  previewSummaryLabel: {
+    display: "block",
+    color: COLORS.muted,
+    fontSize: "12px",
+    fontWeight: 600,
+    marginTop: "6px",
+  },
+  previewSections: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+    gap: "12px",
+  },
+  previewSection: {
+    minWidth: 0,
+  },
+  previewSectionTitle: {
+    color: COLORS.text,
+    fontSize: "13px",
+    fontWeight: 800,
+    marginBottom: "8px",
+  },
+  previewEmpty: {
+    color: COLORS.muted,
+    fontSize: "12px",
+    border: `1px dashed ${COLORS.border}`,
+    borderRadius: "7px",
+    padding: "10px",
+    backgroundColor: COLORS.white,
+  },
+  previewEmailList: {
+    display: "grid",
+    gap: "6px",
+    maxHeight: "170px",
+    overflowY: "auto",
+  },
+  previewEmailRow: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "8px",
+    minHeight: "32px",
+    border: `1px solid ${COLORS.border}`,
+    borderRadius: "7px",
+    padding: "6px 8px 6px 10px",
+    backgroundColor: COLORS.white,
+  },
+  previewEmailText: {
+    minWidth: 0,
+    color: COLORS.text,
+    fontSize: "12px",
+    fontWeight: 600,
+    wordBreak: "break-word",
+  },
+  previewRemoveButton: {
+    width: "24px",
+    height: "24px",
+    borderRadius: "999px",
+    border: "none",
+    backgroundColor: "#FEF3F2",
+    color: COLORS.danger,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 0,
+    fontSize: "13px",
+    fontWeight: 800,
+    cursor: "pointer",
+    flexShrink: 0,
+    fontFamily: FONT_FAMILY,
+  },
   label: {
     color: COLORS.text,
     fontSize: "13px",
@@ -2528,6 +2851,19 @@ const styles = {
   textarea: {
     width: "100%",
     minHeight: "132px",
+    border: `1px solid ${COLORS.border}`,
+    borderRadius: "6px",
+    padding: "10px 12px",
+    fontSize: "14px",
+    lineHeight: 1.5,
+    color: COLORS.text,
+    backgroundColor: COLORS.white,
+    fontFamily: FONT_FAMILY,
+    resize: "vertical",
+  },
+  importTextarea: {
+    width: "100%",
+    minHeight: "118px",
     border: `1px solid ${COLORS.border}`,
     borderRadius: "6px",
     padding: "10px 12px",
@@ -2655,6 +2991,42 @@ const styles = {
     borderCollapse: "collapse",
     fontSize: "13px",
   },
+  respondentEmailColumn: {
+    width: "21%",
+  },
+  respondentStatusColumn: {
+    width: "10%",
+  },
+  respondentInviteColumn: {
+    width: "12%",
+  },
+  respondentDateColumn: {
+    width: "19%",
+  },
+  respondentReminderColumn: {
+    width: "19%",
+  },
+  emailLogRecipientColumn: {
+    width: "19%",
+  },
+  emailLogTypeColumn: {
+    width: "10%",
+  },
+  emailLogStatusColumn: {
+    width: "7%",
+  },
+  emailLogSubjectColumn: {
+    width: "27%",
+  },
+  emailLogDateColumn: {
+    width: "12%",
+  },
+  emailLogSmallColumn: {
+    width: "6%",
+  },
+  emailLogActionColumn: {
+    width: "7%",
+  },
   th: {
     textAlign: "left",
     padding: "10px",
@@ -2706,6 +3078,19 @@ const styles = {
     color: COLORS.danger,
     fontSize: "12px",
     lineHeight: 1.35,
+  },
+  retryButton: {
+    backgroundColor: "#E5F0FF",
+    color: COLORS.primary,
+    border: "none",
+    borderRadius: "999px",
+    minHeight: "32px",
+    padding: "0 12px",
+    fontSize: "12px",
+    fontWeight: 700,
+    cursor: "pointer",
+    fontFamily: FONT_FAMILY,
+    whiteSpace: "nowrap",
   },
   compactList: {
     display: "grid",

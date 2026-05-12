@@ -60,9 +60,25 @@ export async function sendPendingEmails() {
   return data;
 }
 
+export async function retryFailedEmail(emailLogId) {
+  const { data } = await axiosInstance.post(
+    `/admin/emails/${emailLogId}/retry`,
+    {}
+  );
+  return data;
+}
+
 export async function importRespondents(surveyId, emails) {
   const { data } = await axiosInstance.post(
     `/admin/surveys/${surveyId}/respondents/import`,
+    { emails }
+  );
+  return data;
+}
+
+export async function previewRespondentImport(surveyId, emails) {
+  const { data } = await axiosInstance.post(
+    `/admin/surveys/${surveyId}/respondents/import-preview`,
     { emails }
   );
   return data;
