@@ -1,6 +1,15 @@
 const DEFAULT_ERROR_MESSAGE = "Beklenmeyen bir hata oluştu.";
+const TOO_MANY_REQUESTS_MESSAGE =
+  "Çok fazla istek gönderdiniz. Lütfen biraz bekleyip tekrar deneyin.";
 
 const FIELD_LABELS = {
+  startDate: "Ba\u015flang\u0131\u00e7 tarihi",
+  endDate: "Biti\u015f tarihi",
+  themeColor: "Tema rengi",
+  backgroundColor: "Arka plan rengi",
+  buttonColor: "Buton rengi",
+  fontFamily: "Font",
+  mediaUrl: "Medya URL",
   email: "E-posta",
   password: "Şifre",
   title: "Anket başlığı",
@@ -14,6 +23,16 @@ const FIELD_LABELS = {
 };
 
 const FIELD_MESSAGE_TRANSLATIONS = {
+  "startDate:Survey start date cannot be after end date":
+    "Ba\u015flang\u0131\u00e7 tarihi biti\u015f tarihinden sonra olamaz.",
+  "themeColor:Theme color must be a valid hex color":
+    "Tema rengi ge\u00e7erli bir hex renk olmal\u0131d\u0131r.",
+  "backgroundColor:Background color must be a valid hex color":
+    "Arka plan rengi ge\u00e7erli bir hex renk olmal\u0131d\u0131r.",
+  "buttonColor:Button color must be a valid hex color":
+    "Buton rengi ge\u00e7erli bir hex renk olmal\u0131d\u0131r.",
+  "fontFamily:Font family is not allowed": "Bu font desteklenmiyor.",
+  "mediaUrl:Media URL is not valid": "Medya URL ge\u00e7erli de\u011fil.",
   "email:Email is required": "E-posta alanı boş olamaz.",
   "email:Email must be valid": "Lütfen geçerli e-posta adresi giriniz.",
   "email:Invalid email format": "Lütfen geçerli e-posta adresi giriniz.",
@@ -58,6 +77,19 @@ const FIELD_MESSAGE_TRANSLATIONS = {
 };
 
 const MESSAGE_TRANSLATIONS = {
+  "Survey has not started yet": "Anket hen\u00fcz ba\u015flamad\u0131.",
+  "Survey has ended": "Anketin s\u00fcresi doldu.",
+  "Survey is not active": "Anket aktif de\u011fil.",
+  "Survey start date cannot be after end date":
+    "Ba\u015flang\u0131\u00e7 tarihi biti\u015f tarihinden sonra olamaz.",
+  "Theme color must be a valid hex color":
+    "Tema rengi ge\u00e7erli bir hex renk olmal\u0131d\u0131r.",
+  "Background color must be a valid hex color":
+    "Arka plan rengi ge\u00e7erli bir hex renk olmal\u0131d\u0131r.",
+  "Button color must be a valid hex color":
+    "Buton rengi ge\u00e7erli bir hex renk olmal\u0131d\u0131r.",
+  "Font family is not allowed": "Bu font desteklenmiyor.",
+  "Media URL is not valid": "Medya URL ge\u00e7erli de\u011fil.",
   "Email is required": "E-posta alanı boş olamaz.",
   "Email must not be blank": "E-posta alanı boş olamaz.",
   "Email must not be empty": "E-posta alanı boş olamaz.",
@@ -91,6 +123,19 @@ function normalizeMessageKey(message) {
 }
 
 const NORMALIZED_MESSAGE_TRANSLATIONS = {
+  "survey has not started yet": "Anket hen\u00fcz ba\u015flamad\u0131.",
+  "survey has ended": "Anketin s\u00fcresi doldu.",
+  "survey is not active": "Anket aktif de\u011fil.",
+  "survey start date cannot be after end date":
+    "Ba\u015flang\u0131\u00e7 tarihi biti\u015f tarihinden sonra olamaz.",
+  "theme color must be a valid hex color":
+    "Tema rengi ge\u00e7erli bir hex renk olmal\u0131d\u0131r.",
+  "background color must be a valid hex color":
+    "Arka plan rengi ge\u00e7erli bir hex renk olmal\u0131d\u0131r.",
+  "button color must be a valid hex color":
+    "Buton rengi ge\u00e7erli bir hex renk olmal\u0131d\u0131r.",
+  "font family is not allowed": "Bu font desteklenmiyor.",
+  "media url is not valid": "Medya URL ge\u00e7erli de\u011fil.",
   "email is required": "E-posta alanı boş olamaz.",
   "email must not be blank": "E-posta alanı boş olamaz.",
   "email must not be empty": "E-posta alanı boş olamaz.",
@@ -144,6 +189,10 @@ function translateApiErrorItem(item) {
 }
 
 export function getApiErrorMessage(error, fallbackMessage = DEFAULT_ERROR_MESSAGE) {
+  if (error?.response?.status === 429) {
+    return TOO_MANY_REQUESTS_MESSAGE;
+  }
+
   return (
     error?.response?.data?.message ||
     error?.response?.data?.error ||

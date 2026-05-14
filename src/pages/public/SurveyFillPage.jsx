@@ -41,10 +41,101 @@ function getYoutubeEmbedUrl(url) {
   return "";
 }
 
+function getVimeoEmbedUrl(url) {
+  if (!url) return "";
+
+  try {
+    const parsedUrl = new URL(url);
+    const hostname = parsedUrl.hostname.replace("www.", "");
+
+    if (hostname === "player.vimeo.com") {
+      return url;
+    }
+
+    if (hostname === "vimeo.com") {
+      const videoId = parsedUrl.pathname.split("/").filter(Boolean).at(0);
+      return videoId ? `https://player.vimeo.com/video/${videoId}` : "";
+    }
+  } catch {
+    return "";
+  }
+
+  return "";
+}
+
 function isDirectVideoUrl(url) {
   if (!url) return false;
 
   return /\.(mp4|webm|ogg|mov)(\?.*)?$/i.test(url);
+}
+
+function getEmbedVideoUrl(url) {
+  return getYoutubeEmbedUrl(url) || getVimeoEmbedUrl(url);
+}
+
+function getSurveyTheme(survey) {
+  return {
+    themeColor: survey?.themeColor || COLORS.primary,
+    backgroundColor: survey?.backgroundColor || COLORS.background,
+    buttonColor: survey?.buttonColor || COLORS.primary,
+    fontFamily: survey?.fontFamily || "Poppins",
+  };
+}
+
+function getFontStack(fontFamily) {
+  if (fontFamily === "system-ui" || fontFamily === "sans-serif") {
+    return `${fontFamily}, sans-serif`;
+  }
+
+  return `"${fontFamily}", sans-serif`;
+}
+
+function renderOptionMedia(option) {
+  if (!option?.mediaType || option.mediaType === "NONE" || !option.mediaUrl) {
+    return null;
+  }
+
+  if (option.mediaType === "IMAGE") {
+    return (
+      <img
+        src={option.mediaUrl}
+        alt="option media"
+        style={styles.optionMediaImage}
+      />
+    );
+  }
+
+  if (option.mediaType === "VIDEO") {
+    const embedUrl = getEmbedVideoUrl(option.mediaUrl);
+
+    if (isDirectVideoUrl(option.mediaUrl)) {
+      return (
+        <video
+          controls
+          preload="metadata"
+          style={styles.optionMediaVideo}
+          src={option.mediaUrl}
+        >
+          Tarayiciniz video etiketini desteklemiyor.
+        </video>
+      );
+    }
+
+    if (embedUrl) {
+      return (
+        <iframe
+          src={embedUrl}
+          title={`option-video-${option.id}`}
+          style={styles.optionMediaFrame}
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          referrerPolicy="strict-origin-when-cross-origin"
+          allowFullScreen
+        />
+      );
+    }
+  }
+
+  return null;
 }
 
 function isValidEmail(email) {
@@ -301,9 +392,24 @@ function SurveyFillPage({ publicKey, respondentTokenFromUrl = "", onBack }) {
     );
   }
 
+  const surveyTheme = getSurveyTheme(survey);
+  const themedFontFamily = getFontStack(surveyTheme.fontFamily);
+  const themedTextStyle = { fontFamily: themedFontFamily };
+
   return (
-    <div style={styles.pageWrapper}>
-      <div style={styles.panel}>
+    <div
+      style={{
+        ...styles.pageWrapper,
+        backgroundColor: surveyTheme.backgroundColor,
+        fontFamily: themedFontFamily,
+      }}
+    >
+      <div
+        style={{
+          ...styles.panel,
+          backgroundColor: surveyTheme.backgroundColor,
+        }}
+      >
         <div style={styles.header}>
           <div style={styles.brandArea}>
             <img src={surveyProLogo} alt="SurveyPro logo" style={styles.logo} />
@@ -311,7 +417,14 @@ function SurveyFillPage({ publicKey, respondentTokenFromUrl = "", onBack }) {
 
           <div style={styles.headerRight}>
             {onBack && (
-              <button style={styles.topButton} onClick={onBack}>
+              <button
+                style={{
+                  ...styles.topButton,
+                  backgroundColor: surveyTheme.buttonColor,
+                  fontFamily: themedFontFamily,
+                }}
+                onClick={onBack}
+              >
                 Geri Don
               </button>
             )}
@@ -322,22 +435,46 @@ function SurveyFillPage({ publicKey, respondentTokenFromUrl = "", onBack }) {
         </div>
 
         <div style={styles.tabHeader}>
-          <div style={styles.tabText}>Public Test</div>
-          <div style={styles.tabUnderline} />
+          <div style={{ ...styles.tabText, color: surveyTheme.themeColor }}>
+            Public Test
+          </div>
+          <div
+            style={{
+              ...styles.tabUnderline,
+              backgroundColor: surveyTheme.themeColor,
+            }}
+          />
         </div>
       </div>
 
-      <div style={styles.contentArea}>
+      <div
+        style={{
+          ...styles.contentArea,
+          backgroundColor: surveyTheme.backgroundColor,
+        }}
+      >
         <div style={styles.container}>
           <div style={styles.mainCard}>
-            <h1 style={styles.title}>{survey.title}</h1>
-            <p style={styles.description}>{survey.description}</p>
+            <h1
+              style={{
+                ...styles.title,
+                ...themedTextStyle,
+                color: surveyTheme.themeColor,
+              }}
+            >
+              {survey.title}
+            </h1>
+            <p style={{ ...styles.description, ...themedTextStyle }}>
+              {survey.description}
+            </p>
           </div>
 
           <div style={styles.mainCard}>
-            <label style={styles.label}>E-posta</label>
+            <label style={{ ...styles.label, ...themedTextStyle }}>
+              E-posta
+            </label>
             <input
-              style={styles.input}
+              style={{ ...styles.input, ...themedTextStyle }}
               type="email"
               placeholder="E-posta adresinizi girin"
               value={email}
@@ -347,7 +484,13 @@ function SurveyFillPage({ publicKey, respondentTokenFromUrl = "", onBack }) {
 
           {survey.questions?.map((question) => (
             <div key={question.id} style={styles.questionCard}>
-              <h3 style={styles.questionTitle}>
+              <h3
+                style={{
+                  ...styles.questionTitle,
+                  ...themedTextStyle,
+                  color: surveyTheme.themeColor,
+                }}
+              >
                 {question.orderNo}. {question.questionText}
                 {question.isRequired && (
                   <span style={styles.requiredMark} aria-label="zorunlu">
@@ -378,9 +521,9 @@ function SurveyFillPage({ publicKey, respondentTokenFromUrl = "", onBack }) {
                   )}
 
                   {!isDirectVideoUrl(question.mediaUrl) &&
-                    getYoutubeEmbedUrl(question.mediaUrl) && (
+                    getEmbedVideoUrl(question.mediaUrl) && (
                       <iframe
-                        src={getYoutubeEmbedUrl(question.mediaUrl)}
+                        src={getEmbedVideoUrl(question.mediaUrl)}
                         title={`question-video-${question.id}`}
                         style={styles.videoFrame}
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
@@ -390,10 +533,10 @@ function SurveyFillPage({ publicKey, respondentTokenFromUrl = "", onBack }) {
                     )}
 
                   {!isDirectVideoUrl(question.mediaUrl) &&
-                    !getYoutubeEmbedUrl(question.mediaUrl) && (
+                    !getEmbedVideoUrl(question.mediaUrl) && (
                       <p style={styles.mediaFallbackText}>
                         Bu video URL tipi desteklenmiyor. Direkt video dosyasi
-                        ya da YouTube embedlenebilir link kullanin.
+                        ya da YouTube/Vimeo linki kullanin.
                       </p>
                     )}
                 </>
@@ -401,7 +544,7 @@ function SurveyFillPage({ publicKey, respondentTokenFromUrl = "", onBack }) {
 
               {question.questionType === "TEXT" && (
                 <textarea
-                  style={styles.textarea}
+                  style={{ ...styles.textarea, ...themedTextStyle }}
                   placeholder="Cevabinizi yazin"
                   value={answers[question.id]?.answerText || ""}
                   onChange={(e) => handleTextChange(question.id, e.target.value)}
@@ -411,7 +554,10 @@ function SurveyFillPage({ publicKey, respondentTokenFromUrl = "", onBack }) {
               {question.questionType === "SINGLE_CHOICE" && (
                 <div style={styles.optionGroup}>
                   {question.options?.map((option) => (
-                    <label key={option.id} style={styles.optionLabel}>
+                    <label
+                      key={option.id}
+                      style={{ ...styles.optionLabel, ...themedTextStyle }}
+                    >
                       <input
                         type="radio"
                         name={`question-${question.id}`}
@@ -420,7 +566,10 @@ function SurveyFillPage({ publicKey, respondentTokenFromUrl = "", onBack }) {
                           handleSingleChoiceChange(question.id, option.id)
                         }
                       />
-                      <span>{option.optionText}</span>
+                      <span style={styles.optionContent}>
+                        <span>{option.optionText}</span>
+                        {renderOptionMedia(option)}
+                      </span>
                     </label>
                   ))}
                 </div>
@@ -429,7 +578,10 @@ function SurveyFillPage({ publicKey, respondentTokenFromUrl = "", onBack }) {
               {question.questionType === "MULTI_CHOICE" && (
                 <div style={styles.optionGroup}>
                   {question.options?.map((option) => (
-                    <label key={option.id} style={styles.optionLabel}>
+                    <label
+                      key={option.id}
+                      style={{ ...styles.optionLabel, ...themedTextStyle }}
+                    >
                       <input
                         type="checkbox"
                         checked={
@@ -444,7 +596,10 @@ function SurveyFillPage({ publicKey, respondentTokenFromUrl = "", onBack }) {
                           )
                         }
                       />
-                      <span>{option.optionText}</span>
+                      <span style={styles.optionContent}>
+                        <span>{option.optionText}</span>
+                        {renderOptionMedia(option)}
+                      </span>
                     </label>
                   ))}
                 </div>
@@ -452,7 +607,7 @@ function SurveyFillPage({ publicKey, respondentTokenFromUrl = "", onBack }) {
 
               {question.questionType === "YES_NO" && (
                 <div style={styles.optionGroup}>
-                  <label style={styles.optionLabel}>
+                  <label style={{ ...styles.optionLabel, ...themedTextStyle }}>
                     <input
                       type="radio"
                       name={`question-${question.id}`}
@@ -461,7 +616,7 @@ function SurveyFillPage({ publicKey, respondentTokenFromUrl = "", onBack }) {
                     />
                     <span>Evet</span>
                   </label>
-                  <label style={styles.optionLabel}>
+                  <label style={{ ...styles.optionLabel, ...themedTextStyle }}>
                     <input
                       type="radio"
                       name={`question-${question.id}`}
@@ -482,8 +637,13 @@ function SurveyFillPage({ publicKey, respondentTokenFromUrl = "", onBack }) {
                       style={{
                         ...styles.ratingButton,
                         ...(answers[question.id]?.ratingValue === value
-                          ? styles.ratingButtonActive
+                          ? {
+                              ...styles.ratingButtonActive,
+                              backgroundColor: surveyTheme.buttonColor,
+                              borderColor: surveyTheme.buttonColor,
+                            }
                           : {}),
+                        fontFamily: themedFontFamily,
                       }}
                       onClick={() => handleRatingChange(question.id, value)}
                     >
@@ -497,7 +657,11 @@ function SurveyFillPage({ publicKey, respondentTokenFromUrl = "", onBack }) {
 
           <div style={styles.submitArea}>
             <button
-              style={styles.submitButton}
+              style={{
+                ...styles.submitButton,
+                backgroundColor: surveyTheme.buttonColor,
+                fontFamily: themedFontFamily,
+              }}
               onClick={handleSubmit}
               disabled={saving}
             >
@@ -513,7 +677,9 @@ function SurveyFillPage({ publicKey, respondentTokenFromUrl = "", onBack }) {
                 ))}
               </div>
             ) : (
-              <p style={styles.message}>{message}</p>
+              <p style={{ ...styles.message, ...themedTextStyle }}>
+                {message}
+              </p>
             ))}
         </div>
       </div>
@@ -703,10 +869,39 @@ const styles = {
   },
   optionLabel: {
     display: "flex",
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: "10px",
     color: COLORS.text,
     fontFamily: FONT_FAMILY,
+  },
+  optionContent: {
+    display: "grid",
+    gap: "8px",
+    flex: 1,
+    minWidth: 0,
+  },
+  optionMediaImage: {
+    width: "100%",
+    maxWidth: "280px",
+    maxHeight: "150px",
+    objectFit: "cover",
+    borderRadius: "8px",
+    border: `1px solid ${COLORS.border}`,
+  },
+  optionMediaVideo: {
+    width: "100%",
+    maxWidth: "320px",
+    maxHeight: "190px",
+    borderRadius: "8px",
+    backgroundColor: "#000000",
+  },
+  optionMediaFrame: {
+    width: "100%",
+    maxWidth: "320px",
+    minHeight: "180px",
+    border: "none",
+    borderRadius: "8px",
+    backgroundColor: "#000000",
   },
   ratingGroup: {
     display: "flex",
