@@ -47,6 +47,36 @@ function isDirectVideoUrl(url) {
   return /\.(mp4|webm|ogg|mov)(\?.*)?$/i.test(url);
 }
 
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function isQuestionAnswered(question, answer) {
+  if (!answer) return false;
+
+  if (question.questionType === "TEXT") {
+    return Boolean(answer.answerText?.trim());
+  }
+
+  if (question.questionType === "SINGLE_CHOICE") {
+    return Boolean(answer.optionId);
+  }
+
+  if (question.questionType === "MULTI_CHOICE") {
+    return Array.isArray(answer.optionIds) && answer.optionIds.length > 0;
+  }
+
+  if (question.questionType === "YES_NO") {
+    return typeof answer.boolValue === "boolean";
+  }
+
+  if (question.questionType === "RATING") {
+    return answer.ratingValue != null;
+  }
+
+  return false;
+}
+
 function SurveyFillPage({ publicKey, respondentTokenFromUrl = "", onBack }) {
   const storageKey = `respondentToken:${publicKey}`;
   const [survey, setSurvey] = useState(null);
@@ -143,13 +173,17 @@ function SurveyFillPage({ publicKey, respondentTokenFromUrl = "", onBack }) {
       if (!answer) return;
 
       if (question.questionType === "TEXT") {
+        const answerText = answer.answerText?.trim();
+
+        if (!answerText) return;
+
         payload.push({
           questionId: question.id,
-          answerText: answer.answerText || "",
+          answerText,
         });
       }
 
-      if (question.questionType === "SINGLE_CHOICE") {
+      if (question.questionType === "SINGLE_CHOICE" && answer.optionId) {
         payload.push({
           questionId: question.id,
           optionId: answer.optionId,
@@ -165,14 +199,17 @@ function SurveyFillPage({ publicKey, respondentTokenFromUrl = "", onBack }) {
         });
       }
 
-      if (question.questionType === "YES_NO") {
+      if (
+        question.questionType === "YES_NO" &&
+        typeof answer.boolValue === "boolean"
+      ) {
         payload.push({
           questionId: question.id,
           boolValue: answer.boolValue,
         });
       }
 
-      if (question.questionType === "RATING") {
+      if (question.questionType === "RATING" && answer.ratingValue) {
         payload.push({
           questionId: question.id,
           ratingValue: answer.ratingValue,
@@ -186,16 +223,47 @@ function SurveyFillPage({ publicKey, respondentTokenFromUrl = "", onBack }) {
   const handleSubmit = async () => {
     if (saving) return;
 
-    setSaving(true);
     setMessage("");
     setMessageType("info");
 
+    const trimmedEmail = email.trim();
+
+    if (trimmedEmail && !isValidEmail(trimmedEmail)) {
+      setMessage("Lütfen geçerli e-posta adresi giriniz.");
+      setMessageType("error");
+      return;
+    }
+
+    const answerPayload = buildAnswerPayload();
+    const unansweredRequiredQuestions = (survey?.questions || []).filter(
+      (question) => question.isRequired && !isQuestionAnswered(question, answers[question.id])
+    );
+
+    if (unansweredRequiredQuestions.length > 0) {
+      setMessage("Zorunlu soruları cevaplayınız.");
+      setMessageType("error");
+      return;
+    }
+
+    if (answerPayload.length === 0) {
+      setMessage("En az bir cevap gereklidir.");
+      setMessageType("error");
+      return;
+    }
+
+    setSaving(true);
+
     try {
-      const response = await submitPublicSurvey(publicKey, {
-        email,
+      const payload = {
         respondentToken,
-        answers: buildAnswerPayload(),
-      });
+        answers: answerPayload,
+      };
+
+      if (trimmedEmail) {
+        payload.email = trimmedEmail;
+      }
+
+      const response = await submitPublicSurvey(publicKey, payload);
 
       if (response?.respondentToken) {
         setRespondentToken(response.respondentToken);
@@ -281,6 +349,11 @@ function SurveyFillPage({ publicKey, respondentTokenFromUrl = "", onBack }) {
             <div key={question.id} style={styles.questionCard}>
               <h3 style={styles.questionTitle}>
                 {question.orderNo}. {question.questionText}
+                {question.isRequired && (
+                  <span style={styles.requiredMark} aria-label="zorunlu">
+                    *
+                  </span>
+                )}
               </h3>
 
               {question.mediaType === "IMAGE" && question.mediaUrl && (
@@ -610,6 +683,10 @@ const styles = {
     fontSize: "18px",
     fontWeight: 700,
     fontFamily: FONT_FAMILY,
+  },
+  requiredMark: {
+    color: "#B42318",
+    marginLeft: "6px",
   },
   textarea: {
     width: "100%",

@@ -1856,10 +1856,12 @@ function WeeklyReportPanel({ surveyId, onQueued }) {
       setMessage("");
       setError("");
       await queueWeeklyReport(surveyId);
-      setMessage("Haftalik rapor kuyruya alindi.");
+      setMessage("Haftalik anket raporu kuyruga alindi.");
       onQueued?.();
     } catch (err) {
-      setError(getApiErrorMessage(err, "Haftalik rapor kuyruya alinamadi."));
+      setError(
+        getApiErrorMessage(err, "Haftalik anket raporu kuyruga alinamadi.")
+      );
     } finally {
       setQueueing(false);
     }
@@ -1869,8 +1871,10 @@ function WeeklyReportPanel({ surveyId, onQueued }) {
     <section style={styles.card}>
       <div style={styles.cardHeader}>
         <div>
-          <h2 style={styles.cardTitle}>Weekly Report</h2>
-          <p style={styles.cardSubtitle}>Admin haftalik rapor maili</p>
+          <h2 style={styles.cardTitle}>Haftalik Anket Raporu</h2>
+          <p style={styles.cardSubtitle}>
+            Bu ankete ait son 7 gunluk rapor mailini kuyruga alir.
+          </p>
         </div>
         <button
           type="button"
@@ -1878,7 +1882,9 @@ function WeeklyReportPanel({ surveyId, onQueued }) {
           onClick={handleQueue}
           disabled={queueing}
         >
-          {queueing ? "Kuyruga aliniyor..." : "Haftalik Rapor Queue"}
+          {queueing
+            ? "Kuyruga aliniyor..."
+            : "Haftalik Anket Raporunu Kuyruga Al"}
         </button>
       </div>
 

@@ -105,6 +105,43 @@ function clearStoredRequestKey() {
   sessionStorage.removeItem(CREATE_SURVEY_REQUEST_KEY_STORAGE);
 }
 
+function getQuestionMediaError(question) {
+  const mediaUrl = typeof question.mediaUrl === "string"
+    ? question.mediaUrl.trim()
+    : "";
+
+  if (question.mediaType === "IMAGE" || question.mediaType === "VIDEO") {
+    if (!mediaUrl) {
+      return "Medya URL alani zorunludur.";
+    }
+
+    if (
+      !mediaUrl.startsWith("http://") &&
+      !mediaUrl.startsWith("https://")
+    ) {
+      return "Medya URL http:// veya https:// ile baslamalidir.";
+    }
+  }
+
+  if (question.mediaType === "NONE" && mediaUrl) {
+    return 'Medya tipi "NONE" iken medya URL bos olmalidir.';
+  }
+
+  return "";
+}
+
+function buildQuestionErrors(questionList) {
+  return questionList.reduce((errors, question) => {
+    const error = getQuestionMediaError(question);
+
+    if (error) {
+      errors[question.orderNo] = error;
+    }
+
+    return errors;
+  }, {});
+}
+
 function SurveyCreatePage() {
   const navigate = useNavigate();
   const { surveyId } = useParams();
@@ -197,42 +234,6 @@ function SurveyCreatePage() {
       isCancelled = true;
     };
   }, [isEditMode, surveyId]);
-
-  const getQuestionMediaError = (question) => {
-    const mediaUrl = typeof question.mediaUrl === "string"
-      ? question.mediaUrl.trim()
-      : "";
-
-    if (question.mediaType === "IMAGE" || question.mediaType === "VIDEO") {
-      if (!mediaUrl) {
-        return "Medya URL alani zorunludur.";
-      }
-
-      if (
-        !mediaUrl.startsWith("http://") &&
-        !mediaUrl.startsWith("https://")
-      ) {
-        return "Medya URL http:// veya https:// ile baslamalidir.";
-      }
-    }
-
-    if (question.mediaType === "NONE" && mediaUrl) {
-      return 'Medya tipi "NONE" iken medya URL bos olmalidir.';
-    }
-
-    return "";
-  };
-
-  const buildQuestionErrors = (questionList) =>
-    questionList.reduce((errors, question) => {
-      const error = getQuestionMediaError(question);
-
-      if (error) {
-        errors[question.orderNo] = error;
-      }
-
-      return errors;
-    }, {});
 
   const addQuestion = () => {
     const nextQuestion = {
@@ -452,7 +453,6 @@ function SurveyCreatePage() {
         setMessageType("success");
       } else {
         await createSurvey({
-          ownerUserId: 1,
           requestKey,
           ...body,
         });
