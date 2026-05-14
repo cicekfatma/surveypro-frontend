@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getApiErrorMessage } from "../../api/axiosInstance";
-import { getSurveyResults } from "../../api/surveyApi";
+import { getRespondentResults, getSurveyResults } from "../../api/surveyApi";
 import { clearAuthSession } from "../../auth/session";
 import surveyProLogo from "../../assets/surveypro-logo.png";
 
@@ -35,10 +35,34 @@ function LogoutIcon() {
   );
 }
 
+function formatDateTime(value) {
+  if (!value) return "-";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  return new Intl.DateTimeFormat("tr-TR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function getAnswerForQuestion(respondent, questionId) {
+  return (
+    respondent.answers?.find((answer) => answer.questionId === questionId)
+      ?.answer || "-"
+  );
+}
+
 function SurveyResultsPage() {
   const navigate = useNavigate();
   const { surveyId } = useParams();
   const [results, setResults] = useState(null);
+  const [respondentResults, setRespondentResults] = useState([]);
+  const [activeTab, setActiveTab] = useState("questions");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -50,8 +74,12 @@ function SurveyResultsPage() {
   useEffect(() => {
     const fetchSurveyResults = async () => {
       try {
-        const data = await getSurveyResults(surveyId);
-        setResults(data);
+        const [questionData, respondentData] = await Promise.all([
+          getSurveyResults(surveyId),
+          getRespondentResults(surveyId),
+        ]);
+        setResults(questionData);
+        setRespondentResults(respondentData || []);
       } catch (err) {
         console.error(err);
         setError(getApiErrorMessage(err, "Results alinamadi"));
@@ -67,7 +95,7 @@ function SurveyResultsPage() {
     return (
       <div style={styles.pageWrapper}>
         <div style={styles.panel}>
-          <div style={styles.statusBox}>Yükleniyor...</div>
+          <div style={styles.statusBox}>Yukleniyor...</div>
         </div>
       </div>
     );
@@ -89,11 +117,13 @@ function SurveyResultsPage() {
     return (
       <div style={styles.pageWrapper}>
         <div style={styles.panel}>
-          <div style={styles.statusBox}>Sonuç bulunamadı.</div>
+          <div style={styles.statusBox}>Sonuc bulunamadi.</div>
         </div>
       </div>
     );
   }
+
+  const questionColumns = results.questions || [];
 
   return (
     <div style={styles.pageWrapper}>
@@ -101,7 +131,7 @@ function SurveyResultsPage() {
         <div style={styles.header}>
           <div style={styles.brandArea}>
             <img src={surveyProLogo} alt="SurveyPro logo" style={styles.logo} />
-            <span style={styles.brandText}>SURVEYPRO ADMIN PANELİ</span>
+            <span style={styles.brandText}>SURVEYPRO ADMIN PANELI</span>
           </div>
 
           <div style={styles.headerRight}>
@@ -109,7 +139,7 @@ function SurveyResultsPage() {
               style={styles.topButton}
               onClick={() => navigate("/admin/surveys")}
             >
-              Anket Listesine Dön
+              Anket Listesine Don
             </button>
             <button
               type="button"
@@ -124,7 +154,7 @@ function SurveyResultsPage() {
         </div>
 
         <div style={styles.tabHeader}>
-          <div style={styles.tabText}>Anket Sonuçları</div>
+          <div style={styles.tabText}>Anket Sonuclari</div>
           <div style={styles.tabUnderline} />
         </div>
 
@@ -135,7 +165,7 @@ function SurveyResultsPage() {
 
               <div style={styles.infoGrid}>
                 <div style={styles.infoItem}>
-                  <span style={styles.infoLabel}>Toplam Katılımcı</span>
+                  <span style={styles.infoLabel}>Toplam Katilimci</span>
                   <span style={styles.infoValue}>
                     {results.totalRespondents ?? 0}
                   </span>
@@ -143,96 +173,183 @@ function SurveyResultsPage() {
               </div>
             </div>
 
-            <div style={styles.sectionHeader}>Soru Bazlı Sonuçlar</div>
+            <div style={styles.resultTabs}>
+              <button
+                type="button"
+                style={{
+                  ...styles.tabButton,
+                  ...(activeTab === "questions" ? styles.tabButtonActive : null),
+                }}
+                onClick={() => setActiveTab("questions")}
+              >
+                Soru Bazli
+              </button>
+              <button
+                type="button"
+                style={{
+                  ...styles.tabButton,
+                  ...(activeTab === "respondents" ? styles.tabButtonActive : null),
+                }}
+                onClick={() => setActiveTab("respondents")}
+              >
+                Katilimci Bazli
+              </button>
+            </div>
 
-            {results.questions && results.questions.length > 0 ? (
-              results.questions.map((question) => (
-                <div key={question.questionId} style={styles.questionCard}>
-                  <div style={styles.questionTitle}>{question.questionText}</div>
-
-                  <div style={styles.metaRow}>
-                    <span style={styles.metaLabel}>Soru Tipi</span>
-                    <span style={styles.metaValue}>{question.questionType}</span>
-                  </div>
-
-                  {question.questionType === "TEXT" && (
-                    <div style={styles.resultBlock}>
-                      <div style={styles.blockTitle}>Metin Cevapları</div>
-
-                      {question.textAnswers && question.textAnswers.length > 0 ? (
-                        <ul style={styles.list}>
-                          {question.textAnswers.map((answer, index) => (
-                            <li key={index} style={styles.listItem}>
-                              {answer}
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <div style={styles.emptyText}>Cevap bulunamadı.</div>
-                      )}
-                    </div>
-                  )}
-
-                  {(question.questionType === "MULTI_CHOICE" ||
-                    question.questionType === "SINGLE_CHOICE") && (
-                    <div style={styles.resultBlock}>
-                      <div style={styles.blockTitle}>Seçenek Sonuçları</div>
-
-                      {question.options && question.options.length > 0 ? (
-                        <ul style={styles.list}>
-                          {question.options.map((option) => (
-                            <li key={option.optionId} style={styles.listItem}>
-                              {option.optionText} — {option.count}
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <div style={styles.emptyText}>
-                          Seçenek sonucu bulunamadı.
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {question.questionType === "YES_NO" && (
-                    <div style={styles.resultBlock}>
-                      <div style={styles.blockTitle}>Evet / Hayır Sonuçları</div>
-                      <p style={styles.simpleText}>Evet: {question.yesCount ?? 0}</p>
-                      <p style={styles.simpleText}>Hayır: {question.noCount ?? 0}</p>
-                    </div>
-                  )}
-
-                  {question.questionType === "RATING" && (
-                    <div style={styles.resultBlock}>
-                      <div style={styles.blockTitle}>Puanlama Sonuçları</div>
-                      <p style={styles.simpleText}>
-                        Ortalama Puan: {question.averageRating ?? 0}
-                      </p>
-
-                      {question.ratings && question.ratings.length > 0 ? (
-                        <ul style={styles.list}>
-                          {question.ratings.map((rating, index) => (
-                            <li key={index} style={styles.listItem}>
-                              {rating.ratingValue} puan — {rating.count}
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <div style={styles.emptyText}>
-                          Puanlama sonucu bulunamadı.
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))
+            {activeTab === "questions" ? (
+              <QuestionResults questions={questionColumns} />
             ) : (
-              <div style={styles.emptyCard}>Soru sonucu bulunamadı.</div>
+              <RespondentResults
+                questions={questionColumns}
+                respondentResults={respondentResults}
+              />
             )}
           </div>
         </div>
       </div>
     </div>
+  );
+}
+
+function QuestionResults({ questions }) {
+  return (
+    <>
+      <div style={styles.sectionHeader}>Soru Bazli Sonuclar</div>
+
+      {questions.length > 0 ? (
+        questions.map((question) => (
+          <div key={question.questionId} style={styles.questionCard}>
+            <div style={styles.questionTitle}>{question.questionText}</div>
+
+            <div style={styles.metaRow}>
+              <span style={styles.metaLabel}>Soru Tipi</span>
+              <span style={styles.metaValue}>{question.questionType}</span>
+            </div>
+
+            {question.questionType === "TEXT" && (
+              <div style={styles.resultBlock}>
+                <div style={styles.blockTitle}>Metin Cevaplari</div>
+
+                {question.textAnswers && question.textAnswers.length > 0 ? (
+                  <ul style={styles.list}>
+                    {question.textAnswers.map((answer, index) => (
+                      <li key={index} style={styles.listItem}>
+                        {answer}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div style={styles.emptyText}>Cevap bulunamadi.</div>
+                )}
+              </div>
+            )}
+
+            {(question.questionType === "MULTI_CHOICE" ||
+              question.questionType === "SINGLE_CHOICE") && (
+              <div style={styles.resultBlock}>
+                <div style={styles.blockTitle}>Secenek Sonuclari</div>
+
+                {question.options && question.options.length > 0 ? (
+                  <ul style={styles.list}>
+                    {question.options.map((option) => (
+                      <li key={option.optionId} style={styles.listItem}>
+                        {option.optionText} - {option.count}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div style={styles.emptyText}>
+                    Secenek sonucu bulunamadi.
+                  </div>
+                )}
+              </div>
+            )}
+
+            {question.questionType === "YES_NO" && (
+              <div style={styles.resultBlock}>
+                <div style={styles.blockTitle}>Evet / Hayir Sonuclari</div>
+                <p style={styles.simpleText}>Evet: {question.yesCount ?? 0}</p>
+                <p style={styles.simpleText}>Hayir: {question.noCount ?? 0}</p>
+              </div>
+            )}
+
+            {question.questionType === "RATING" && (
+              <div style={styles.resultBlock}>
+                <div style={styles.blockTitle}>Puanlama Sonuclari</div>
+                <p style={styles.simpleText}>
+                  Ortalama Puan: {question.averageRating ?? 0}
+                </p>
+
+                {question.ratings && question.ratings.length > 0 ? (
+                  <ul style={styles.list}>
+                    {question.ratings.map((rating, index) => (
+                      <li key={index} style={styles.listItem}>
+                        {rating.ratingValue} puan - {rating.count}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div style={styles.emptyText}>
+                    Puanlama sonucu bulunamadi.
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        ))
+      ) : (
+        <div style={styles.emptyCard}>Soru sonucu bulunamadi.</div>
+      )}
+    </>
+  );
+}
+
+function RespondentResults({ questions, respondentResults }) {
+  return (
+    <>
+      <div style={styles.sectionHeader}>Katilimci Bazli Sonuclar</div>
+
+      {respondentResults.length === 0 ? (
+        <div style={styles.emptyCard}>Katilimci sonucu bulunamadi.</div>
+      ) : (
+        <div style={styles.tableWrap}>
+          <table style={styles.table}>
+            <thead>
+              <tr>
+                <th style={styles.th}>Katilimci</th>
+                <th style={styles.th}>Acilma</th>
+                <th style={styles.th}>Cevaplama</th>
+                {questions.map((question) => (
+                  <th key={question.questionId} style={styles.th}>
+                    {question.questionText}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {respondentResults.map((respondent) => (
+                <tr key={respondent.respondentId} style={styles.tr}>
+                  <td style={styles.td}>
+                    {respondent.displayName ||
+                      respondent.email ||
+                      `Anonim Katilimci #${respondent.respondentId}`}
+                  </td>
+                  <td style={styles.td}>{formatDateTime(respondent.openedAt)}</td>
+                  <td style={styles.td}>
+                    {formatDateTime(respondent.submittedAt)}
+                  </td>
+                  {questions.map((question) => (
+                    <td key={question.questionId} style={styles.td}>
+                      {getAnswerForQuestion(respondent, question.questionId)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -348,7 +465,7 @@ const styles = {
   },
 
   container: {
-    maxWidth: "900px",
+    maxWidth: "1120px",
     margin: "0 auto",
   },
 
@@ -357,7 +474,7 @@ const styles = {
     borderRadius: "8px",
     padding: "20px",
     border: `1px solid ${COLORS.border}`,
-    marginBottom: "24px",
+    marginBottom: "18px",
     boxShadow: "0 1px 3px rgba(16, 24, 40, 0.06)",
   },
 
@@ -393,6 +510,35 @@ const styles = {
   infoValue: {
     fontSize: "14px",
     color: COLORS.text,
+  },
+
+  resultTabs: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "6px",
+    padding: "5px",
+    border: `1px solid ${COLORS.border}`,
+    borderRadius: "8px",
+    backgroundColor: COLORS.white,
+    marginBottom: "18px",
+  },
+
+  tabButton: {
+    border: "none",
+    borderRadius: "6px",
+    minHeight: "34px",
+    padding: "0 14px",
+    backgroundColor: "transparent",
+    color: COLORS.text,
+    fontSize: "13px",
+    fontWeight: 700,
+    cursor: "pointer",
+    fontFamily: FONT_FAMILY,
+  },
+
+  tabButtonActive: {
+    backgroundColor: COLORS.primary,
+    color: COLORS.white,
   },
 
   sectionHeader: {
@@ -478,6 +624,43 @@ const styles = {
     padding: "20px",
     border: `1px solid ${COLORS.border}`,
     color: COLORS.text,
+  },
+
+  tableWrap: {
+    width: "100%",
+    overflowX: "auto",
+    backgroundColor: COLORS.white,
+    border: `1px solid ${COLORS.border}`,
+    borderRadius: "8px",
+    boxShadow: "0 1px 3px rgba(16, 24, 40, 0.05)",
+  },
+
+  table: {
+    width: "100%",
+    minWidth: "900px",
+    borderCollapse: "collapse",
+    fontSize: "13px",
+  },
+
+  th: {
+    textAlign: "left",
+    padding: "12px",
+    color: COLORS.muted,
+    borderBottom: `1px solid ${COLORS.border}`,
+    backgroundColor: "#F9FAFB",
+    whiteSpace: "nowrap",
+  },
+
+  tr: {
+    borderBottom: `1px solid ${COLORS.border}`,
+  },
+
+  td: {
+    padding: "12px",
+    color: COLORS.text,
+    verticalAlign: "top",
+    wordBreak: "break-word",
+    minWidth: "140px",
   },
 
   statusBox: {

@@ -47,6 +47,13 @@ export async function getSurveyResults(surveyId) {
   return data;
 }
 
+export async function getRespondentResults(surveyId) {
+  const { data } = await axiosInstance.get(
+    `/admin/surveys/${surveyId}/responses`
+  );
+  return data;
+}
+
 export async function getSurveyDashboard(surveyId) {
   const { data } = await axiosInstance.get(
     `/admin/surveys/${surveyId}/dashboard`

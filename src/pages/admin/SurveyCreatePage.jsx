@@ -765,7 +765,7 @@ function SurveyCreatePage() {
         }
       >
         <span style={styles.themeSelectValue}>{value}</span>
-        <span style={styles.themeSelectArrow}>⌄</span>
+        <span style={styles.themeSelectArrow}>▾</span>
       </button>
       {openThemeSelect === id && (
         <div style={styles.themeSelectMenu}>
@@ -1758,7 +1758,7 @@ const styles = {
   },
   themeSelectButton: {
     width: "100%",
-    height: "50px",
+    height: "42px",
     border: "1px solid #C9CDD2",
     borderRadius: "4px",
     backgroundColor: "#FFFFFF",
@@ -1767,9 +1767,9 @@ const styles = {
     alignItems: "center",
     justifyContent: "space-between",
     gap: "10px",
-    padding: "0 12px",
+    padding: "0 11px",
     cursor: "pointer",
-    fontSize: "14px",
+    fontSize: "13px",
     fontFamily: FONT_FAMILY,
     boxSizing: "border-box",
   },
@@ -1780,9 +1780,14 @@ const styles = {
   },
   themeSelectArrow: {
     color: COLORS.text,
-    fontSize: "18px",
+    fontSize: "12px",
     lineHeight: 1,
     flexShrink: 0,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    height: "100%",
+    transform: "translateY(-1px)",
   },
   themeSelectMenu: {
     position: "absolute",
@@ -1798,7 +1803,7 @@ const styles = {
   },
   themeSelectOption: {
     width: "100%",
-    minHeight: "36px",
+    minHeight: "34px",
     border: "none",
     backgroundColor: "#FFFFFF",
     color: COLORS.text,
@@ -1806,7 +1811,7 @@ const styles = {
     alignItems: "center",
     padding: "0 14px",
     cursor: "pointer",
-    fontSize: "14px",
+    fontSize: "13px",
     textAlign: "left",
     fontFamily: FONT_FAMILY,
   },
