@@ -1,9 +1,14 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getApiErrorMessage } from "../../api/axiosInstance";
-import { getRespondentResults, getSurveyResults } from "../../api/surveyApi";
-import { clearAuthSession } from "../../auth/session";
+import {
+  exportQuestionSummaryCsv,
+  exportRespondentResultsCsv,
+  getRespondentResults,
+  getSurveyResults,
+} from "../../api/surveyApi";
 import surveyProLogo from "../../assets/surveypro-logo.png";
+import { useLogoutConfirmation } from "../../hooks/useLogoutConfirmation";
 
 const COLORS = {
   primary: "#023E8A",
@@ -57,6 +62,17 @@ function getAnswerForQuestion(respondent, questionId) {
   );
 }
 
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 function SurveyResultsPage() {
   const navigate = useNavigate();
   const { surveyId } = useParams();
@@ -64,12 +80,9 @@ function SurveyResultsPage() {
   const [respondentResults, setRespondentResults] = useState([]);
   const [activeTab, setActiveTab] = useState("questions");
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState("");
   const [error, setError] = useState("");
-
-  const handleLogout = () => {
-    clearAuthSession();
-    navigate("/login", { replace: true });
-  };
+  const { requestLogout, logoutConfirmDialog } = useLogoutConfirmation(navigate);
 
   useEffect(() => {
     const fetchSurveyResults = async () => {
@@ -82,7 +95,7 @@ function SurveyResultsPage() {
         setRespondentResults(respondentData || []);
       } catch (err) {
         console.error(err);
-        setError(getApiErrorMessage(err, "Results alinamadi"));
+        setError(getApiErrorMessage(err, "Sonuçlar alınamadı"));
       } finally {
         setLoading(false);
       }
@@ -91,11 +104,41 @@ function SurveyResultsPage() {
     fetchSurveyResults();
   }, [surveyId]);
 
+  const handleExportRespondents = async () => {
+    if (exporting) return;
+
+    try {
+      setExporting("respondents");
+      const blob = await exportRespondentResultsCsv(surveyId);
+      downloadBlob(blob, `survey-${surveyId}-respondents.csv`);
+    } catch (err) {
+      console.error(err);
+      setError(getApiErrorMessage(err, "Katılımcı CSV indirilemedi"));
+    } finally {
+      setExporting("");
+    }
+  };
+
+  const handleExportQuestionSummary = async () => {
+    if (exporting) return;
+
+    try {
+      setExporting("questions");
+      const blob = await exportQuestionSummaryCsv(surveyId);
+      downloadBlob(blob, `survey-${surveyId}-question-summary.csv`);
+    } catch (err) {
+      console.error(err);
+      setError(getApiErrorMessage(err, "Soru özeti CSV indirilemedi"));
+    } finally {
+      setExporting("");
+    }
+  };
+
   if (loading) {
     return (
       <div style={styles.pageWrapper}>
         <div style={styles.panel}>
-          <div style={styles.statusBox}>Yukleniyor...</div>
+          <div style={styles.statusBox}>Yükleniyor...</div>
         </div>
       </div>
     );
@@ -117,7 +160,7 @@ function SurveyResultsPage() {
     return (
       <div style={styles.pageWrapper}>
         <div style={styles.panel}>
-          <div style={styles.statusBox}>Sonuc bulunamadi.</div>
+          <div style={styles.statusBox}>Sonuç bulunamadı.</div>
         </div>
       </div>
     );
@@ -139,14 +182,14 @@ function SurveyResultsPage() {
               style={styles.topButton}
               onClick={() => navigate("/admin/surveys")}
             >
-              Anket Listesine Don
+              Anket Listesine Dön
             </button>
             <button
               type="button"
               style={styles.logoutButton}
-              onClick={handleLogout}
-              aria-label="Cikis Yap"
-              title="Cikis Yap"
+              onClick={requestLogout}
+              aria-label="Çıkış Yap"
+              title="Çıkış Yap"
             >
               <LogoutIcon />
             </button>
@@ -165,7 +208,7 @@ function SurveyResultsPage() {
 
               <div style={styles.infoGrid}>
                 <div style={styles.infoItem}>
-                  <span style={styles.infoLabel}>Toplam Katilimci</span>
+                  <span style={styles.infoLabel}>Toplam Katılımcı</span>
                   <span style={styles.infoValue}>
                     {results.totalRespondents ?? 0}
                   </span>
@@ -192,7 +235,26 @@ function SurveyResultsPage() {
                 }}
                 onClick={() => setActiveTab("respondents")}
               >
-                Katilimci Bazli
+                Katılımcı Bazlı
+              </button>
+            </div>
+
+            <div style={styles.exportActions}>
+              <button
+                type="button"
+                style={styles.exportButton}
+                onClick={handleExportQuestionSummary}
+                disabled={Boolean(exporting)}
+              >
+                {exporting === "questions" ? "Hazırlanıyor..." : "Soru Özeti CSV"}
+              </button>
+              <button
+                type="button"
+                style={styles.exportButton}
+                onClick={handleExportRespondents}
+                disabled={Boolean(exporting)}
+              >
+                {exporting === "respondents" ? "Hazırlanıyor..." : "Katılımcı CSV"}
               </button>
             </div>
 
@@ -207,6 +269,7 @@ function SurveyResultsPage() {
           </div>
         </div>
       </div>
+      {logoutConfirmDialog}
     </div>
   );
 }
@@ -239,7 +302,7 @@ function QuestionResults({ questions }) {
                     ))}
                   </ul>
                 ) : (
-                  <div style={styles.emptyText}>Cevap bulunamadi.</div>
+                  <div style={styles.emptyText}>Cevap bulunamadı.</div>
                 )}
               </div>
             )}
@@ -259,7 +322,7 @@ function QuestionResults({ questions }) {
                   </ul>
                 ) : (
                   <div style={styles.emptyText}>
-                    Secenek sonucu bulunamadi.
+                    Seçenek sonucu bulunamadı.
                   </div>
                 )}
               </div>
@@ -267,9 +330,9 @@ function QuestionResults({ questions }) {
 
             {question.questionType === "YES_NO" && (
               <div style={styles.resultBlock}>
-                <div style={styles.blockTitle}>Evet / Hayir Sonuclari</div>
+                <div style={styles.blockTitle}>Evet / Hayır Sonuçları</div>
                 <p style={styles.simpleText}>Evet: {question.yesCount ?? 0}</p>
-                <p style={styles.simpleText}>Hayir: {question.noCount ?? 0}</p>
+                <p style={styles.simpleText}>Hayır: {question.noCount ?? 0}</p>
               </div>
             )}
 
@@ -290,7 +353,7 @@ function QuestionResults({ questions }) {
                   </ul>
                 ) : (
                   <div style={styles.emptyText}>
-                    Puanlama sonucu bulunamadi.
+                    Puanlama sonucu bulunamadı.
                   </div>
                 )}
               </div>
@@ -298,7 +361,7 @@ function QuestionResults({ questions }) {
           </div>
         ))
       ) : (
-        <div style={styles.emptyCard}>Soru sonucu bulunamadi.</div>
+        <div style={styles.emptyCard}>Soru sonucu bulunamadı.</div>
       )}
     </>
   );
@@ -307,16 +370,16 @@ function QuestionResults({ questions }) {
 function RespondentResults({ questions, respondentResults }) {
   return (
     <>
-      <div style={styles.sectionHeader}>Katilimci Bazli Sonuclar</div>
+      <div style={styles.sectionHeader}>Katılımcı Bazlı Sonuclar</div>
 
       {respondentResults.length === 0 ? (
-        <div style={styles.emptyCard}>Katilimci sonucu bulunamadi.</div>
+        <div style={styles.emptyCard}>Katılımcı sonucu bulunamadı.</div>
       ) : (
         <div style={styles.tableWrap}>
           <table style={styles.table}>
             <thead>
               <tr>
-                <th style={styles.th}>Katilimci</th>
+                <th style={styles.th}>Katılımcı</th>
                 <th style={styles.th}>Acilma</th>
                 <th style={styles.th}>Cevaplama</th>
                 {questions.map((question) => (
@@ -332,7 +395,7 @@ function RespondentResults({ questions, respondentResults }) {
                   <td style={styles.td}>
                     {respondent.displayName ||
                       respondent.email ||
-                      `Anonim Katilimci #${respondent.respondentId}`}
+                      `Anonim Katılımcı #${respondent.respondentId}`}
                   </td>
                   <td style={styles.td}>{formatDateTime(respondent.openedAt)}</td>
                   <td style={styles.td}>
@@ -405,8 +468,9 @@ const styles = {
     color: "#FFFFFF",
     border: "none",
     borderRadius: "999px",
-    minHeight: "42px",
-    padding: "0 20px",
+    minHeight: "36px",
+    height: "36px",
+    padding: "0 16px",
     fontSize: "13px",
     fontWeight: 600,
     cursor: "pointer",
@@ -521,6 +585,27 @@ const styles = {
     borderRadius: "8px",
     backgroundColor: COLORS.white,
     marginBottom: "18px",
+  },
+
+  exportActions: {
+    display: "flex",
+    justifyContent: "flex-end",
+    gap: "10px",
+    marginBottom: "18px",
+    flexWrap: "wrap",
+  },
+
+  exportButton: {
+    backgroundColor: COLORS.primary,
+    color: COLORS.white,
+    border: "none",
+    borderRadius: "999px",
+    minHeight: "38px",
+    padding: "0 16px",
+    fontSize: "13px",
+    fontWeight: 700,
+    cursor: "pointer",
+    fontFamily: FONT_FAMILY,
   },
 
   tabButton: {
@@ -671,3 +756,4 @@ const styles = {
 };
 
 export default SurveyResultsPage;
+

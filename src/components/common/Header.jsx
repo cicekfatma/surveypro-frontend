@@ -1,6 +1,6 @@
+import { useLogoutConfirmation } from "../../hooks/useLogoutConfirmation";
 import { useNavigate } from "react-router-dom";
 import surveyProLogo from "../../assets/surveypro-logo.png";
-import { clearAuthSession } from "../../auth/session";
 import { styles } from "../../styles/surveyListStyles";
 
 function LogoutIcon() {
@@ -24,35 +24,35 @@ function LogoutIcon() {
 
 function Header({ onCreateSurvey }) {
   const navigate = useNavigate();
-
-  const handleLogout = () => {
-    clearAuthSession();
-    navigate("/login", { replace: true });
-  };
+  const { requestLogout, logoutConfirmDialog } = useLogoutConfirmation(navigate);
 
   return (
-    <div style={styles.header}>
-      <div style={styles.brandArea}>
-        <img src={surveyProLogo} alt="SurveyPro logo" style={styles.logo} />
-      </div>
+    <>
+      <div style={styles.header}>
+        <div style={styles.brandArea}>
+          <img src={surveyProLogo} alt="SurveyPro logo" style={styles.logo} />
+        </div>
 
-      <div style={styles.headerRight}>
-        <button style={styles.newSurveyButton} onClick={onCreateSurvey}>
-          Yeni Anket Olustur
-        </button>
+        <div style={styles.headerRight}>
+          <button style={styles.newSurveyButton} onClick={onCreateSurvey}>
+            Yeni Anket Oluştur
+          </button>
 
-        <button
-          type="button"
-          style={styles.logoutButton}
-          onClick={handleLogout}
-          aria-label="Cikis Yap"
-          title="Cikis Yap"
-        >
-          <LogoutIcon />
-        </button>
+          <button
+            type="button"
+            style={styles.logoutButton}
+            onClick={requestLogout}
+            aria-label="Çıkış Yap"
+            title="Çıkış Yap"
+          >
+            <LogoutIcon />
+          </button>
+        </div>
       </div>
-    </div>
+      {logoutConfirmDialog}
+    </>
   );
 }
 
 export default Header;
+

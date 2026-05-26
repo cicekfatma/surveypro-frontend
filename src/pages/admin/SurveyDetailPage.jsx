@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getApiErrorMessage } from "../../api/axiosInstance";
 import { getSurveyDetail } from "../../api/surveyApi";
-import { clearAuthSession } from "../../auth/session";
 import surveyProLogo from "../../assets/surveypro-logo.png";
+import { useLogoutConfirmation } from "../../hooks/useLogoutConfirmation";
 
 const COLORS = {
   primary: "#023E8A",
@@ -41,11 +41,7 @@ function SurveyDetailPage() {
   const [survey, setSurvey] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
-  const handleLogout = () => {
-    clearAuthSession();
-    navigate("/login", { replace: true });
-  };
+  const { requestLogout, logoutConfirmDialog } = useLogoutConfirmation(navigate);
 
   useEffect(() => {
     const fetchSurveyDetail = async () => {
@@ -54,7 +50,7 @@ function SurveyDetailPage() {
         setSurvey(data);
       } catch (err) {
         console.error(err);
-        setError(getApiErrorMessage(err, "Anket detayi alinamadi"));
+        setError(getApiErrorMessage(err, "Anket detayı alınamadı"));
       } finally {
         setLoading(false);
       }
@@ -107,18 +103,6 @@ function SurveyDetailPage() {
           <div style={styles.headerRight}>
             <button
               style={styles.topButton}
-              onClick={() => navigate(`/admin/surveys/${surveyId}/edit`)}
-            >
-              Anketi Duzenle
-            </button>
-            <button
-              style={styles.topButton}
-              onClick={() => navigate(`/admin/surveys/${surveyId}/mail`)}
-            >
-              Mail Otomasyonu
-            </button>
-            <button
-              style={styles.topButton}
               onClick={() => navigate("/admin/surveys")}
             >
               Anket Listesine Dön
@@ -126,9 +110,9 @@ function SurveyDetailPage() {
             <button
               type="button"
               style={styles.logoutButton}
-              onClick={handleLogout}
-              aria-label="Cikis Yap"
-              title="Cikis Yap"
+              onClick={requestLogout}
+              aria-label="Çıkış Yap"
+              title="Çıkış Yap"
             >
               <LogoutIcon />
             </button>
@@ -233,6 +217,7 @@ function SurveyDetailPage() {
           </div>
         </div>
       </div>
+      {logoutConfirmDialog}
     </div>
   );
 }
@@ -272,8 +257,8 @@ const styles = {
   },
 
   logo: {
-    width: "154px",
-    height: "38px",
+    width: "132px",
+    height: "32px",
     objectFit: "contain",
     display: "block",
   },
@@ -289,11 +274,13 @@ const styles = {
     color: "#FFFFFF",
     border: "none",
     borderRadius: "999px",
-    minHeight: "42px",
-    padding: "0 20px",
+    minHeight: "36px",
+    height: "36px",
+    padding: "0 16px",
     fontSize: "13px",
     fontWeight: 600,
     cursor: "pointer",
+    boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
@@ -490,3 +477,4 @@ const styles = {
 };
 
 export default SurveyDetailPage;
+

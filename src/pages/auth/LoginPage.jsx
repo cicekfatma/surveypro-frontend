@@ -339,10 +339,6 @@ function LoginPage() {
               </div>
             </div>
 
-            <button type="button" style={styles.forgotPassword}>
-              {"\u015eifremi Unuttum"}
-            </button>
-
             <button
               type="button"
               style={{
@@ -498,19 +494,6 @@ const styles = {
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
-  },
-  forgotPassword: {
-    display: "block",
-    marginLeft: "auto",
-    marginBottom: "22px",
-    padding: 0,
-    border: "none",
-    background: "transparent",
-    color: "#1A63D0",
-    fontSize: "12px",
-    fontWeight: 500,
-    cursor: "pointer",
-    fontFamily: FONT_FAMILY,
   },
   loginButton: {
     width: "100%",

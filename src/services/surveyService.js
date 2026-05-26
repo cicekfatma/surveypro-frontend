@@ -1,1 +1,6 @@
-export { getSurveys, getSurveysPage } from "../api/surveyApi";
+export {
+  activateSurvey,
+  archiveSurvey,
+  getSurveys,
+  getSurveysPage,
+} from "../api/surveyApi";

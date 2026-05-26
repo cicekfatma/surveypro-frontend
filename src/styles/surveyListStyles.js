@@ -313,6 +313,21 @@ export const styles = {
     flexShrink: 0,
   },
 
+  archiveActionButton: {
+    backgroundColor: "#FFF4E5",
+    color: "#B54708",
+  },
+
+  activateActionButton: {
+    backgroundColor: "#ECFDF3",
+    color: "#087443",
+  },
+
+  actionButtonDisabled: {
+    opacity: 0.58,
+    cursor: "not-allowed",
+  },
+
   emptyCard: {
     backgroundColor: "#ffffff",
     borderRadius: "8px",
@@ -579,5 +594,82 @@ export const styles = {
     padding: "24px",
     fontSize: "18px",
     fontWeight: 600,
+  },
+
+  modalOverlay: {
+    position: "fixed",
+    inset: 0,
+    zIndex: 1000,
+    backgroundColor: "rgba(15, 23, 42, 0.42)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "20px",
+    boxSizing: "border-box",
+    fontFamily: FONT_FAMILY,
+  },
+
+  confirmDialog: {
+    width: "100%",
+    maxWidth: "320px",
+    backgroundColor: "#ffffff",
+    borderRadius: "8px",
+    border: "1px solid #d9dee5",
+    boxShadow: "0 18px 45px rgba(15, 23, 42, 0.22)",
+    padding: "20px",
+    boxSizing: "border-box",
+    textAlign: "center",
+  },
+
+  confirmTitle: {
+    margin: "0 0 8px",
+    color: "#28283A",
+    fontSize: "18px",
+    lineHeight: 1.25,
+    fontWeight: 800,
+    letterSpacing: 0,
+  },
+
+  confirmText: {
+    margin: 0,
+    color: "#616371",
+    fontSize: "13px",
+    lineHeight: 1.5,
+  },
+
+  confirmActions: {
+    display: "flex",
+    justifyContent: "center",
+    gap: "10px",
+    marginTop: "18px",
+    flexWrap: "wrap",
+  },
+
+  confirmPrimaryButton: {
+    border: "none",
+    borderRadius: "8px",
+    backgroundColor: "#023E8A",
+    color: "#ffffff",
+    minHeight: "36px",
+    minWidth: "92px",
+    padding: "0 14px",
+    fontSize: "13px",
+    fontWeight: 700,
+    cursor: "pointer",
+    fontFamily: FONT_FAMILY,
+  },
+
+  confirmSecondaryButton: {
+    border: "1px solid #d9dee5",
+    borderRadius: "8px",
+    backgroundColor: "#ffffff",
+    color: "#28283A",
+    minHeight: "36px",
+    minWidth: "92px",
+    padding: "0 14px",
+    fontSize: "13px",
+    fontWeight: 700,
+    cursor: "pointer",
+    fontFamily: FONT_FAMILY,
   },
 };

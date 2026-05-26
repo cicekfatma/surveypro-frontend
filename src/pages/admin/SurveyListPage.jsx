@@ -4,12 +4,17 @@ import { getApiErrorMessage } from "../../api/axiosInstance";
 import Header from "../../components/common/Header";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 import TabBar from "../../components/common/TabBar";
-import { getSurveys, getSurveysPage } from "../../services/surveyService";
+import {
+  activateSurvey,
+  archiveSurvey,
+  getSurveys,
+  getSurveysPage,
+} from "../../services/surveyService";
 import { styles } from "../../styles/surveyListStyles";
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
 const ACTIVE_FILTER_OPTIONS = [
-  { value: "", label: "Tum Anketler" },
+  { value: "", label: "Tüm Anketler" },
   { value: "true", label: "Aktif" },
   { value: "false", label: "Pasif" },
 ];
@@ -38,6 +43,8 @@ function SurveyListPage() {
   const [totalElements, setTotalElements] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [statusUpdatingId, setStatusUpdatingId] = useState(null);
+  const [statusConfirmSurvey, setStatusConfirmSurvey] = useState(null);
   const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
   const [isSizeMenuOpen, setIsSizeMenuOpen] = useState(false);
 
@@ -47,7 +54,7 @@ function SurveyListPage() {
   const isLastPage = page + 1 >= displayTotalPages;
   const activeFilterLabel =
     ACTIVE_FILTER_OPTIONS.find((option) => option.value === isActive)?.label ||
-    "Tum Anketler";
+    "Tüm Anketler";
 
   const loadSurveys = useCallback(async () => {
     try {
@@ -85,7 +92,7 @@ function SurveyListPage() {
         setSurveys([]);
         setTotalPages(0);
         setTotalElements(0);
-        setError(getApiErrorMessage(fallbackErr, "Anketler yuklenemedi."));
+        setError(getApiErrorMessage(fallbackErr, "Anketler yüklenemedi."));
       }
     } finally {
       setLoading(false);
@@ -123,6 +130,47 @@ function SurveyListPage() {
     setPage(0);
   };
 
+  const handleStatusToggle = (survey) => {
+    setStatusConfirmSurvey(survey);
+  };
+
+  const handleCancelStatusToggle = () => {
+    setStatusConfirmSurvey(null);
+  };
+
+  const handleConfirmStatusToggle = async () => {
+    if (!statusConfirmSurvey) {
+      return;
+    }
+
+    const survey = statusConfirmSurvey;
+    const nextIsActive = !survey.isActive;
+
+    try {
+      setStatusUpdatingId(survey.id);
+      setError("");
+      setStatusConfirmSurvey(null);
+      if (nextIsActive) {
+        await activateSurvey(survey.id);
+      } else {
+        await archiveSurvey(survey.id);
+      }
+      await loadSurveys();
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Anket durumu güncellenemedi."));
+    } finally {
+      setStatusUpdatingId(null);
+    }
+  };
+
+  const statusConfirmTitle = statusConfirmSurvey?.isActive
+    ? "Anket pasife alinsin mi?"
+    : "Anket tekrar aktif hale getirilsin mi?";
+
+  const statusConfirmText = statusConfirmSurvey?.isActive
+    ? "Public linkten yeni cevap kabul edilmeyecek."
+    : "Public link tekrar cevap kabul edebilir.";
+
   const renderContent = () => {
     if (loading && surveys.length === 0) {
       return (
@@ -133,7 +181,7 @@ function SurveyListPage() {
     }
 
     if (surveys.length === 0) {
-      return <div style={styles.emptyCard}>Anket bulunamadi.</div>;
+      return <div style={styles.emptyCard}>Anket bulunamadı.</div>;
     }
 
     return (
@@ -153,11 +201,11 @@ function SurveyListPage() {
           </colgroup>
           <thead>
             <tr>
-              <th style={styles.th}>Baslik</th>
-              <th style={styles.th}>Aciklama</th>
+              <th style={styles.th}>Başlık</th>
+              <th style={styles.th}>Açıklama</th>
               <th style={styles.th}>Hedef</th>
               <th style={styles.th}>Durum</th>
-              <th style={styles.th}>Islemler</th>
+              <th style={styles.th}>İşlemler</th>
             </tr>
           </thead>
           <tbody>
@@ -195,10 +243,21 @@ function SurveyListPage() {
                         ...styles.tableActionButton,
                       }}
                       onClick={() =>
+                        navigate(`/admin/surveys/${survey.id}/edit`)
+                      }
+                    >
+                      Düzenle
+                    </button>
+                    <button
+                      style={{
+                        ...styles.smallActionButton,
+                        ...styles.tableActionButton,
+                      }}
+                      onClick={() =>
                         navigate(`/admin/surveys/${survey.id}/results`)
                       }
                     >
-                      Results
+                      Sonuçlar
                     </button>
                     <button
                       style={{
@@ -209,7 +268,7 @@ function SurveyListPage() {
                         navigate(`/admin/surveys/${survey.id}/dashboard`)
                       }
                     >
-                      Dashboard
+                      Panel
                     </button>
                     <button
                       style={{
@@ -218,7 +277,7 @@ function SurveyListPage() {
                       }}
                       onClick={() => navigate(`/admin/surveys/${survey.id}/mail`)}
                     >
-                      Mail
+                      Mail Otomasyonu
                     </button>
                     <button
                       style={{
@@ -228,6 +287,26 @@ function SurveyListPage() {
                       onClick={() => navigate(`/survey/${survey.publicKey}`)}
                     >
                       Public Test
+                    </button>
+                    <button
+                      style={{
+                        ...styles.smallActionButton,
+                        ...styles.tableActionButton,
+                        ...(survey.isActive
+                          ? styles.archiveActionButton
+                          : styles.activateActionButton),
+                        ...(statusUpdatingId === survey.id
+                          ? styles.actionButtonDisabled
+                          : null),
+                      }}
+                      disabled={statusUpdatingId === survey.id}
+                      onClick={() => handleStatusToggle(survey)}
+                    >
+                      {statusUpdatingId === survey.id
+                        ? "Isleniyor"
+                        : survey.isActive
+                          ? "Pasife Al"
+                          : "Aktif Et"}
                     </button>
                   </div>
                 </td>
@@ -312,7 +391,7 @@ function SurveyListPage() {
                 </div>
 
                 <div style={styles.filterField}>
-                  <label style={styles.filterLabel}>Olusturma Baslangic</label>
+                  <label style={styles.filterLabel}>Oluşturma Başlangıç</label>
                   <input
                     style={styles.filterInput}
                     type="date"
@@ -325,7 +404,7 @@ function SurveyListPage() {
                 </div>
 
                 <div style={styles.filterField}>
-                  <label style={styles.filterLabel}>Olusturma Bitis</label>
+                  <label style={styles.filterLabel}>Oluşturma Bitiş</label>
                   <input
                     style={styles.filterInput}
                     type="date"
@@ -444,7 +523,7 @@ function SurveyListPage() {
                 </div>
 
                 <label style={styles.pageSizeField}>
-                  <span style={styles.filterLabel}>Sayfada goster</span>
+                  <span style={styles.filterLabel}>Sayfada göster</span>
                   <div
                     style={styles.pageSizeMenuWrap}
                     onBlur={(event) => {
@@ -497,8 +576,41 @@ function SurveyListPage() {
           </div>
         </div>
       </div>
+
+      {statusConfirmSurvey && (
+        <div style={styles.modalOverlay} role="presentation">
+          <div
+            style={styles.confirmDialog}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="survey-status-confirm-title"
+          >
+            <h2 id="survey-status-confirm-title" style={styles.confirmTitle}>
+              {statusConfirmTitle}
+            </h2>
+            <p style={styles.confirmText}>{statusConfirmText}</p>
+            <div style={styles.confirmActions}>
+              <button
+                type="button"
+                style={styles.confirmPrimaryButton}
+                onClick={handleConfirmStatusToggle}
+              >
+                Tamam
+              </button>
+              <button
+                type="button"
+                style={styles.confirmSecondaryButton}
+                onClick={handleCancelStatusToggle}
+              >
+                İptal
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 export default SurveyListPage;
+

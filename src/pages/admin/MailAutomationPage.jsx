@@ -28,8 +28,8 @@ import {
   sendPendingEmails,
 } from "../../api/mailApi";
 import { getSurveyDetail } from "../../api/surveyApi";
-import { clearAuthSession } from "../../auth/session";
 import surveyProLogo from "../../assets/surveypro-logo.png";
+import { useLogoutConfirmation } from "../../hooks/useLogoutConfirmation";
 
 const COLORS = {
   primary: "#023E8A",
@@ -102,20 +102,34 @@ function getStatusStyle(status) {
   return { ...styles.statusPill, ...styles.statusPending };
 }
 
+function getEmailTypeText(emailType) {
+  if (emailType === "INVITATION") return "Davet";
+  if (emailType === "REMINDER") return "Hatırlatma";
+  if (emailType === "WEEKLY_REPORT") return "Haftalık Rapor";
+  return emailType || "-";
+}
+
+function getEmailStatusText(status) {
+  if (status === "SENT") return "Gönderildi";
+  if (status === "PENDING") return "Bekliyor";
+  if (status === "FAILED") return "Başarısız";
+  return status || "-";
+}
+
 function getRespondentStatus(respondent) {
-  if (respondent.submittedAt) return "Tamamladi";
-  if (respondent.openedAt) return "Acti";
+  if (respondent.submittedAt) return "Tamamladı";
+  if (respondent.openedAt) return "Açtı";
   if (respondent.status === "NOT_OPENED") return "Bekliyor";
   if (respondent.status) return respondent.status;
   return "Bekliyor";
 }
 
 function getRespondentStatusStyle(status) {
-  if (status === "Tamamladi") {
+  if (status === "Tamamladı") {
     return { ...styles.statusPill, ...styles.statusSent };
   }
 
-  if (status === "Acti") {
+  if (status === "Açtı") {
     return { ...styles.statusPill, ...styles.statusOpened };
   }
 
@@ -193,13 +207,13 @@ function findInvitationLog(respondent, logs) {
 }
 
 function getInvitationText(invitationLog) {
-  if (!invitationLog) return "Hazirlanmadi";
+  if (!invitationLog) return "Hazırlanmadı";
 
-  if (invitationLog.status === "SENT") return "Gonderildi";
+  if (invitationLog.status === "SENT") return "Gönderildi";
   if (invitationLog.status === "PENDING") return "Kuyrukta";
-  if (invitationLog.status === "FAILED") return "Basarisiz";
+  if (invitationLog.status === "FAILED") return "Başarısız";
 
-  return invitationLog.status || "Hazirlandi";
+  return invitationLog.status || "Hazırlandı";
 }
 
 function InlineMessage({ type = "info", children }) {
@@ -219,24 +233,24 @@ function InlineMessage({ type = "info", children }) {
 }
 
 const RESPONDENT_STATUS_OPTIONS = [
-  { value: "ALL", label: "Tum durumlar" },
-  { value: "NOT_OPENED", label: "Acilmayanlar" },
-  { value: "OPENED_NOT_SUBMITTED", label: "Acan ama tamamlamayan" },
+  { value: "ALL", label: "Tüm durumlar" },
+  { value: "NOT_OPENED", label: "Açılmayanlar" },
+  { value: "OPENED_NOT_SUBMITTED", label: "Açan ama tamamlamayan" },
   { value: "SUBMITTED", label: "Tamamlayanlar" },
 ];
 
 const EMAIL_TYPE_OPTIONS = [
-  { value: "", label: "Tum mail turleri" },
+  { value: "", label: "Tüm mail türleri" },
   { value: "INVITATION", label: "Davet" },
-  { value: "REMINDER", label: "Hatirlatma" },
-  { value: "WEEKLY_REPORT", label: "Haftalik Rapor" },
+  { value: "REMINDER", label: "Hatırlatma" },
+  { value: "WEEKLY_REPORT", label: "Haftalık Rapor" },
 ];
 
 const EMAIL_STATUS_OPTIONS = [
-  { value: "", label: "Tum durumlar" },
+  { value: "", label: "Tüm durumlar" },
   { value: "PENDING", label: "Bekliyor" },
-  { value: "SENT", label: "Gonderildi" },
-  { value: "FAILED", label: "Basarisiz" },
+  { value: "SENT", label: "Gönderildi" },
+  { value: "FAILED", label: "Başarısız" },
 ];
 
 function getPaginationItems(currentPage, totalPages) {
@@ -279,9 +293,9 @@ function RespondentsTable({
     <section style={styles.card}>
       <div style={styles.cardHeader}>
         <div>
-          <h2 style={styles.cardTitle}>Katilimcilar</h2>
+          <h2 style={styles.cardTitle}>Katılımcılar</h2>
           <p style={styles.cardSubtitle}>
-            Davet, acilma, tamamlama ve reminder durumlari
+            Davet, açılma, tamamlama ve hatırlatma durumları
           </p>
         </div>
         <div style={styles.headerButtons}>
@@ -306,7 +320,7 @@ function RespondentsTable({
             }
           }}
         >
-          <span style={styles.label}>Katilimci durumu</span>
+          <span style={styles.label}>Katılımcı durumu</span>
           <div style={styles.statusMenuWrap}>
             <button
               type="button"
@@ -319,7 +333,7 @@ function RespondentsTable({
               <span>
                 {RESPONDENT_STATUS_OPTIONS.find(
                   (option) => option.value === status
-                )?.label || "Tum durumlar"}
+                )?.label || "Tüm durumlar"}
               </span>
               <span style={styles.pageSizeChevron} aria-hidden="true" />
             </button>
@@ -356,9 +370,9 @@ function RespondentsTable({
       <InlineMessage type="error">{error}</InlineMessage>
 
       {loading && respondents.length === 0 ? (
-        <div style={styles.mutedText}>Yukleniyor...</div>
+        <div style={styles.mutedText}>Yükleniyor...</div>
       ) : respondents.length === 0 ? (
-        <div style={styles.emptyState}>Katilimci bulunamadi.</div>
+        <div style={styles.emptyState}>Katılımcı bulunamadı.</div>
       ) : (
         <div
           style={{
@@ -380,9 +394,9 @@ function RespondentsTable({
                 <th style={styles.th}>E-posta</th>
                 <th style={styles.th}>Durum</th>
                 <th style={styles.th}>Davet</th>
-                <th style={styles.th}>Acilma</th>
+                <th style={styles.th}>Açılma</th>
                 <th style={styles.th}>Tamamlama</th>
-                <th style={styles.th}>Reminder</th>
+                <th style={styles.th}>Hatırlatma</th>
               </tr>
             </thead>
             <tbody>
@@ -456,8 +470,8 @@ function RespondentsTable({
             }}
             disabled={isFirstPage || loading}
             onClick={(event) => onPageChange(0, event.currentTarget)}
-            aria-label="Ilk sayfa"
-            title="Ilk sayfa"
+            aria-label="İlk sayfa"
+            title="İlk sayfa"
           >
             &lt;&lt;
           </button>
@@ -470,8 +484,8 @@ function RespondentsTable({
             }}
             disabled={isFirstPage || loading}
             onClick={(event) => onPageChange(page - 1, event.currentTarget)}
-            aria-label="Onceki sayfa"
-            title="Onceki sayfa"
+            aria-label="Önceki sayfa"
+            title="Önceki sayfa"
           >
             &lt;
           </button>
@@ -532,7 +546,7 @@ function RespondentsTable({
             }
           }}
         >
-          <span style={styles.label}>Sayfada goster</span>
+          <span style={styles.label}>Sayfada göster</span>
           <div style={styles.pageSizeMenuWrap}>
             <button
               ref={pageSizeButtonRef}
@@ -613,11 +627,11 @@ function RespondentInvitationPanel({ surveyId, onChanged }) {
       const importableEmails = data?.importableEmails || [];
       setPreview(data);
       setSelectedEmails(importableEmails);
-      setMessage("Onizleme tamamlandi.");
+      setMessage("Önizleme tamamlandı.");
     } catch (err) {
       setPreview(null);
       setSelectedEmails([]);
-      setError(getApiErrorMessage(err, "Onizleme alinamadi."));
+      setError(getApiErrorMessage(err, "Önizleme alınamadı."));
     } finally {
       setPreviewing(false);
     }
@@ -637,13 +651,13 @@ function RespondentInvitationPanel({ surveyId, onChanged }) {
       const response = await importRespondents(surveyId, selectedEmails);
       const importedCount =
         response?.importedCount ?? response?.createdCount ?? selectedEmails.length;
-      setMessage(`${importedCount} katilimci ice aktarildi.`);
+      setMessage(`${importedCount} katılımcı içe aktarıldı.`);
       setEmailText("");
       setPreview(null);
       setSelectedEmails([]);
       onChanged?.();
     } catch (err) {
-      setError(getApiErrorMessage(err, "Katilimcilar ice aktarilamadi."));
+      setError(getApiErrorMessage(err, "Katılımcılar içe aktarılamadı."));
     } finally {
       setImporting(false);
     }
@@ -661,12 +675,12 @@ function RespondentInvitationPanel({ surveyId, onChanged }) {
         response?.queuedCount ?? response?.createdCount ?? normalizeList(response).length;
       setMessage(
         queuedCount > 0
-          ? `${queuedCount} davet maili kuyruya alindi.`
-          : "Davet maili kuyruya alma islemi calistirildi."
+          ? `${queuedCount} davet maili kuyruğa alındı.`
+          : "Davet mailini kuyruğa alma işlemi çalıştırıldı."
       );
       onChanged?.();
     } catch (err) {
-      setError(getApiErrorMessage(err, "Davetler kuyruya alinamadi."));
+      setError(getApiErrorMessage(err, "Davetler kuyruğa alınamadı."));
     } finally {
       setQueueing(false);
     }
@@ -676,9 +690,9 @@ function RespondentInvitationPanel({ surveyId, onChanged }) {
     <section style={styles.card}>
       <div style={styles.cardHeader}>
         <div>
-          <h2 style={styles.cardTitle}>Katilimcilar ve Davetler</h2>
+          <h2 style={styles.cardTitle}>Katılımcılar ve Davetler</h2>
           <p style={styles.cardSubtitle}>
-            E-postalari ice aktar, sonra davet maillerini kuyruya al
+            E-postaları içe aktar, sonra davet maillerini kuyruğa al
           </p>
         </div>
         <span style={styles.countPill}>{emails.length}</span>
@@ -727,9 +741,9 @@ function RespondentInvitationPanel({ surveyId, onChanged }) {
 
           <div style={styles.previewSections}>
             <PreviewEmailSection
-              title="Eklenecek kisiler"
+              title="Eklenecek kişiler"
               emails={selectedEmails}
-              emptyText="Eklenecek kisi yok."
+              emptyText="Eklenecek kişi yok."
               removable
               onRemove={removeSelectedEmail}
             />
@@ -744,9 +758,9 @@ function RespondentInvitationPanel({ surveyId, onChanged }) {
               emptyText="Tekrar eden e-posta yok."
             />
             <PreviewEmailSection
-              title="Hatali e-postalar"
+              title="Hatalı e-postalar"
               emails={previewInvalidEmails}
-              emptyText="Hatali e-posta yok."
+              emptyText="Hatalı e-posta yok."
             />
           </div>
         </div>
@@ -766,10 +780,10 @@ function RespondentInvitationPanel({ surveyId, onChanged }) {
           {preview
             ? importing
               ? "Ekleniyor..."
-              : `Secili ${selectedEmails.length} Katilimciyi Ekle`
+              : `Seçili ${selectedEmails.length} Katılımcıyı Ekle`
             : previewing
-              ? "Onizleniyor..."
-              : "Onizle"}
+              ? "Önizleniyor..."
+              : "Önizle"}
         </button>
         <button
           type="button"
@@ -777,7 +791,7 @@ function RespondentInvitationPanel({ surveyId, onChanged }) {
           onClick={handleQueueInvitations}
           disabled={queueing}
         >
-          {queueing ? "Kuyruga aliniyor..." : "Davetleri Hazirla"}
+          {queueing ? "Kuyruğa alınıyor..." : "Davetleri Hazırla"}
         </button>
       </div>
 
@@ -848,7 +862,7 @@ function MailConfigPanel({ surveyId }) {
         setIsActive(Boolean(config?.isActive));
       } catch (err) {
         if (!isCancelled) {
-          setError(getApiErrorMessage(err, "Mail ayarlari alinamadi."));
+          setError(getApiErrorMessage(err, "Mail ayarları alınamadı."));
         }
       } finally {
         if (!isCancelled) setLoading(false);
@@ -889,16 +903,16 @@ function MailConfigPanel({ surveyId }) {
       <div style={styles.cardHeader}>
         <div>
           <h2 style={styles.cardTitle}>Mail Ayarlari</h2>
-          <p style={styles.cardSubtitle}>Hatirlatma periyodu ve otomasyon durumu</p>
+          <p style={styles.cardSubtitle}>Hatırlatma periyodu ve otomasyon durumu</p>
         </div>
       </div>
 
       {loading ? (
-        <div style={styles.mutedText}>Yukleniyor...</div>
+        <div style={styles.mutedText}>Yükleniyor...</div>
       ) : (
         <div style={styles.formGrid}>
           <label style={styles.field}>
-            <span style={styles.label}>Hatirlatma araligi gun</span>
+            <span style={styles.label}>Hatırlatma aralığı gün</span>
             <input
               type="number"
               min="1"
@@ -909,7 +923,7 @@ function MailConfigPanel({ surveyId }) {
           </label>
 
           <label style={styles.field}>
-            <span style={styles.label}>Maksimum hatirlatma</span>
+            <span style={styles.label}>Maksimum hatırlatma</span>
             <input
               type="number"
               min="0"
@@ -920,7 +934,7 @@ function MailConfigPanel({ surveyId }) {
           </label>
 
           <div style={styles.toggleRow}>
-            <span style={styles.label}>Otomatik hatirlatma</span>
+            <span style={styles.label}>Otomatik hatırlatma</span>
             <label style={styles.switch}>
               <input
                 type="checkbox"
@@ -994,10 +1008,10 @@ function EmailLogsTable({
   const pageSizeOptions = [5, 10, 20];
   const selectedStatusLabel =
     EMAIL_STATUS_OPTIONS.find((option) => option.value === status)?.label ||
-    "Tum durumlar";
+    "Tüm durumlar";
   const selectedTypeLabel =
     EMAIL_TYPE_OPTIONS.find((option) => option.value === emailType)?.label ||
-    "Tum mail turleri";
+    "Tüm mail türleri";
 
   const handleRetryEmail = async (emailLogId) => {
     if (!emailLogId || retryingId) return;
@@ -1022,8 +1036,8 @@ function EmailLogsTable({
     <section style={styles.card}>
       <div style={styles.cardHeader}>
         <div>
-          <h2 style={styles.cardTitle}>Email Loglari</h2>
-          <p style={styles.cardSubtitle}>Bu ankete ait mail gecmisi</p>
+          <h2 style={styles.cardTitle}>E-posta Kayıtları</h2>
+          <p style={styles.cardSubtitle}>Bu ankete ait mail geçmişi</p>
         </div>
         <div style={styles.headerButtons}>
           <span style={styles.countPill}>{totalElements}</span>
@@ -1051,7 +1065,7 @@ function EmailLogsTable({
             }
           }}
         >
-          <span style={styles.label}>Mail turu</span>
+          <span style={styles.label}>Mail türü</span>
           <div style={styles.statusMenuWrap}>
             <button
               type="button"
@@ -1145,9 +1159,9 @@ function EmailLogsTable({
       </div>
 
       {loading && logs.length === 0 ? (
-        <div style={styles.mutedText}>Yukleniyor...</div>
+        <div style={styles.mutedText}>Yükleniyor...</div>
       ) : logs.length === 0 ? (
-        <div style={styles.emptyState}>Email logu bulunamadi.</div>
+        <div style={styles.emptyState}>E-posta kaydı bulunamadı.</div>
       ) : (
         <div
           style={{
@@ -1158,24 +1172,24 @@ function EmailLogsTable({
           <table style={styles.table}>
             <thead>
               <tr>
-                <th style={styles.th}>Alici</th>
-                <th style={styles.th}>Tip</th>
+                <th style={styles.th}>Alıcı</th>
+                <th style={styles.th}>Mail Türü</th>
                 <th style={styles.th}>Durum</th>
                 <th style={styles.th}>Konu</th>
-                <th style={styles.th}>Olusturma</th>
-                <th style={styles.th}>Guncelleme</th>
+                <th style={styles.th}>Oluşturma</th>
+                <th style={styles.th}>Güncelleme</th>
                 <th style={styles.th}>Hata</th>
-                <th style={styles.th}>Aksiyon</th>
+                <th style={styles.th}>İşlem</th>
               </tr>
             </thead>
             <tbody>
               {logs.map((log, index) => (
                 <tr key={log.id || `${log.toEmail}-${index}`} style={styles.tr}>
                   <td style={styles.td}>{log.toEmail || "-"}</td>
-                  <td style={styles.td}>{log.emailType || "-"}</td>
+                  <td style={styles.td}>{getEmailTypeText(log.emailType)}</td>
                   <td style={styles.td}>
                     <span style={getStatusStyle(log.status)}>
-                      {log.status || "-"}
+                      {getEmailStatusText(log.status)}
                     </span>
                   </td>
                   <td style={styles.td}>{log.subject || "-"}</td>
@@ -1197,8 +1211,8 @@ function EmailLogsTable({
                         onClick={() => handleRetryEmail(log.id)}
                       >
                         {retryingId === log.id
-                          ? "Aliniyor..."
-                          : "Tekrar Kuyruga Al"}
+                          ? "Alınıyor..."
+                          : "Tekrar Kuyruğa Al"}
                       </button>
                     ) : (
                       "-"
@@ -1223,8 +1237,8 @@ function EmailLogsTable({
             }}
             disabled={isFirstPage || loading}
             onClick={(event) => onPageChange(0, event.currentTarget)}
-            aria-label="Ilk sayfa"
-            title="Ilk sayfa"
+            aria-label="İlk sayfa"
+            title="İlk sayfa"
           >
             &lt;&lt;
           </button>
@@ -1236,8 +1250,8 @@ function EmailLogsTable({
             }}
             disabled={isFirstPage || loading}
             onClick={(event) => onPageChange(page - 1, event.currentTarget)}
-            aria-label="Onceki sayfa"
-            title="Onceki sayfa"
+            aria-label="Önceki sayfa"
+            title="Önceki sayfa"
           >
             &lt;
           </button>
@@ -1297,7 +1311,7 @@ function EmailLogsTable({
             }
           }}
         >
-          <span style={styles.label}>Sayfada goster</span>
+          <span style={styles.label}>Sayfada göster</span>
           <div style={styles.pageSizeMenuWrap}>
             <button
               ref={pageSizeButtonRef}
@@ -1377,12 +1391,12 @@ function PendingEmailsPanel({
       const sentCount = normalizeList(response).length;
       setMessage(
         sentCount > 0
-          ? `${sentCount} pending mail icin gonderim calisti.`
-          : "Pending mail gonderimi calistirildi."
+          ? `${sentCount} bekleyen mail için gönderim çalıştı.`
+          : "Bekleyen mail gönderimi çalıştırıldı."
       );
       onSent?.();
     } catch (err) {
-      setSendError(getApiErrorMessage(err, "Pending mailler gonderilemedi."));
+      setSendError(getApiErrorMessage(err, "Bekleyen mailler gönderilemedi."));
     } finally {
       setSending(false);
     }
@@ -1392,8 +1406,8 @@ function PendingEmailsPanel({
     <section style={styles.card}>
       <div style={styles.cardHeader}>
         <div>
-          <h2 style={styles.cardTitle}>Pending Queue</h2>
-          <p style={styles.cardSubtitle}>Gonderim bekleyen mailler</p>
+          <h2 style={styles.cardTitle}>Bekleyen Mail Kuyruğu</h2>
+          <p style={styles.cardSubtitle}>Gönderim bekleyen mailler</p>
         </div>
         <div style={styles.headerButtons}>
           <span style={styles.countPill}>{totalElements}</span>
@@ -1406,7 +1420,7 @@ function PendingEmailsPanel({
             onClick={handleSendPending}
             disabled={sending || loading || pendingEmails.length === 0}
           >
-            {sending ? "Gonderiliyor..." : "Pending Gonder"}
+            {sending ? "Gönderiliyor..." : "Bekleyenleri Gönder"}
           </button>
         </div>
       </div>
@@ -1415,9 +1429,9 @@ function PendingEmailsPanel({
       <InlineMessage type="success">{message}</InlineMessage>
 
       {loading ? (
-        <div style={styles.mutedText}>Yukleniyor...</div>
+        <div style={styles.mutedText}>Yükleniyor...</div>
       ) : pendingEmails.length === 0 ? (
-        <div style={styles.emptyState}>Bekleyen email yok.</div>
+        <div style={styles.emptyState}>Bekleyen e-posta yok.</div>
       ) : (
         <div
           style={{
@@ -1428,11 +1442,11 @@ function PendingEmailsPanel({
           <table style={styles.table}>
             <thead>
               <tr>
-                <th style={styles.th}>Survey ID</th>
-                <th style={styles.th}>Alici</th>
-                <th style={styles.th}>Tip</th>
+                <th style={styles.th}>Anket ID</th>
+                <th style={styles.th}>Alıcı</th>
+                <th style={styles.th}>Mail Türü</th>
                 <th style={styles.th}>Konu</th>
-                <th style={styles.th}>Olusturma</th>
+                <th style={styles.th}>Oluşturma</th>
               </tr>
             </thead>
             <tbody>
@@ -1440,7 +1454,7 @@ function PendingEmailsPanel({
                 <tr key={email.id || `${email.toEmail}-${index}`} style={styles.tr}>
                   <td style={styles.td}>{email.surveyId || "-"}</td>
                   <td style={styles.td}>{email.toEmail || "-"}</td>
-                  <td style={styles.td}>{email.emailType || "-"}</td>
+                  <td style={styles.td}>{getEmailTypeText(email.emailType)}</td>
                   <td style={styles.td}>{email.subject || "-"}</td>
                   <td style={styles.td}>{formatDateTime(email.createdAt)}</td>
                 </tr>
@@ -1464,8 +1478,8 @@ function PendingEmailsPanel({
             }}
             disabled={isFirstPage || loading}
             onClick={(event) => onPageChange(0, event.currentTarget)}
-            aria-label="Ilk sayfa"
-            title="Ilk sayfa"
+            aria-label="İlk sayfa"
+            title="İlk sayfa"
           >
             &lt;&lt;
           </button>
@@ -1477,8 +1491,8 @@ function PendingEmailsPanel({
             }}
             disabled={isFirstPage || loading}
             onClick={(event) => onPageChange(page - 1, event.currentTarget)}
-            aria-label="Onceki sayfa"
-            title="Onceki sayfa"
+            aria-label="Önceki sayfa"
+            title="Önceki sayfa"
           >
             &lt;
           </button>
@@ -1538,7 +1552,7 @@ function PendingEmailsPanel({
             }
           }}
         >
-          <span style={styles.label}>Sayfada goster</span>
+          <span style={styles.label}>Sayfada göster</span>
           <div style={styles.pageSizeMenuWrap}>
             <button
               ref={pageSizeButtonRef}
@@ -1619,12 +1633,12 @@ function ReminderPanel({
       const queuedCount = normalizeList(response).length;
       setMessage(
         queuedCount > 0
-          ? `${queuedCount} reminder kuyruya alindi.`
-          : "Reminder queue islemi calistirildi."
+          ? `${queuedCount} hatırlatma kuyruğa alındı.`
+          : "Hatırlatma kuyruğu işlemi çalıştırıldı."
       );
       onQueued?.();
     } catch (err) {
-      setQueueError(getApiErrorMessage(err, "Reminder kuyruya alinamadi."));
+      setQueueError(getApiErrorMessage(err, "Hatırlatma kuyruğa alınamadı."));
     } finally {
       setQueueing(false);
     }
@@ -1634,8 +1648,8 @@ function ReminderPanel({
     <section style={styles.card}>
       <div style={styles.cardHeader}>
         <div>
-          <h2 style={styles.cardTitle}>Reminder Candidates</h2>
-          <p style={styles.cardSubtitle}>Hatirlatma maili icin uygun kisiler</p>
+          <h2 style={styles.cardTitle}>Hatırlatma Adayları</h2>
+          <p style={styles.cardSubtitle}>Hatırlatma maili için uygun kişiler</p>
         </div>
         <div style={styles.headerButtons}>
           <span style={styles.countPill}>{totalElements}</span>
@@ -1648,7 +1662,7 @@ function ReminderPanel({
             onClick={handleQueue}
             disabled={queueing || loading || candidates.length === 0}
           >
-            {queueing ? "Kuyruga aliniyor..." : "Reminder Queue"}
+            {queueing ? "Kuyruğa alınıyor..." : "Hatırlatma Kuyruğa Al"}
           </button>
         </div>
       </div>
@@ -1657,9 +1671,9 @@ function ReminderPanel({
       <InlineMessage type="success">{message}</InlineMessage>
 
       {loading && candidates.length === 0 ? (
-        <div style={styles.mutedText}>Yukleniyor...</div>
+        <div style={styles.mutedText}>Yükleniyor...</div>
       ) : candidates.length === 0 ? (
-        <div style={styles.emptyState}>Reminder adayi yok.</div>
+        <div style={styles.emptyState}>Hatırlatma adayı yok.</div>
       ) : (
         <div
           style={{
@@ -1672,10 +1686,10 @@ function ReminderPanel({
               <tr>
                 <th style={styles.th}>E-posta</th>
                 <th style={styles.th}>Durum</th>
-                <th style={styles.th}>Acilma</th>
+                <th style={styles.th}>Açılma</th>
                 <th style={styles.th}>Tamamlama</th>
-                <th style={styles.th}>Reminder</th>
-                <th style={styles.th}>Son Reminder</th>
+                <th style={styles.th}>Hatırlatma</th>
+                <th style={styles.th}>Son Hatırlatma</th>
               </tr>
             </thead>
             <tbody>
@@ -1724,8 +1738,8 @@ function ReminderPanel({
             }}
             disabled={isFirstPage || loading}
             onClick={(event) => onPageChange(0, event.currentTarget)}
-            aria-label="Ilk sayfa"
-            title="Ilk sayfa"
+            aria-label="İlk sayfa"
+            title="İlk sayfa"
           >
             &lt;&lt;
           </button>
@@ -1737,8 +1751,8 @@ function ReminderPanel({
             }}
             disabled={isFirstPage || loading}
             onClick={(event) => onPageChange(page - 1, event.currentTarget)}
-            aria-label="Onceki sayfa"
-            title="Onceki sayfa"
+            aria-label="Önceki sayfa"
+            title="Önceki sayfa"
           >
             &lt;
           </button>
@@ -1798,7 +1812,7 @@ function ReminderPanel({
             }
           }}
         >
-          <span style={styles.label}>Sayfada goster</span>
+          <span style={styles.label}>Sayfada göster</span>
           <div style={styles.pageSizeMenuWrap}>
             <button
               ref={pageSizeButtonRef}
@@ -1856,11 +1870,11 @@ function WeeklyReportPanel({ surveyId, onQueued }) {
       setMessage("");
       setError("");
       await queueWeeklyReport(surveyId);
-      setMessage("Haftalik anket raporu kuyruga alindi.");
+      setMessage("Haftalık anket raporu kuyruğa alındı.");
       onQueued?.();
     } catch (err) {
       setError(
-        getApiErrorMessage(err, "Haftalik anket raporu kuyruga alinamadi.")
+        getApiErrorMessage(err, "Haftalık anket raporu kuyruğa alınamadı.")
       );
     } finally {
       setQueueing(false);
@@ -1871,9 +1885,9 @@ function WeeklyReportPanel({ surveyId, onQueued }) {
     <section style={styles.card}>
       <div style={styles.cardHeader}>
         <div>
-          <h2 style={styles.cardTitle}>Haftalik Anket Raporu</h2>
+          <h2 style={styles.cardTitle}>Haftalık Anket Raporu</h2>
           <p style={styles.cardSubtitle}>
-            Bu ankete ait son 7 gunluk rapor mailini kuyruga alir.
+            Bu ankete ait son 7 günlük rapor mailini kuyruğa alır.
           </p>
         </div>
         <button
@@ -1883,8 +1897,8 @@ function WeeklyReportPanel({ surveyId, onQueued }) {
           disabled={queueing}
         >
           {queueing
-            ? "Kuyruga aliniyor..."
-            : "Haftalik Anket Raporunu Kuyruga Al"}
+            ? "Kuyruğa alınıyor..."
+            : "Haftalık Anket Raporunu Kuyruğa Al"}
         </button>
       </div>
 
@@ -1936,14 +1950,10 @@ function MailAutomationPage() {
   const [respondentsError, setRespondentsError] = useState("");
 
   const surveyTitle = useMemo(
-    () => survey?.title || `Survey #${surveyId}`,
+    () => survey?.title || `Anket #${surveyId}`,
     [survey, surveyId]
   );
-
-  const handleLogout = () => {
-    clearAuthSession();
-    navigate("/login", { replace: true });
-  };
+  const { requestLogout, logoutConfirmDialog } = useLogoutConfirmation(navigate);
 
   const fetchLogs = useCallback(async () => {
     try {
@@ -1984,7 +1994,7 @@ function MailAutomationPage() {
         setEmailLogTotalPages(0);
         setEmailLogTotalElements(0);
         setEmailLogsError(
-          getApiErrorMessage(fallbackErr, "Email loglari alinamadi.")
+          getApiErrorMessage(fallbackErr, "E-posta kayıtları alınamadı.")
         );
       }
     } finally {
@@ -2023,7 +2033,7 @@ function MailAutomationPage() {
         setPendingEmails([]);
         setPendingTotalPages(0);
         setPendingTotalElements(0);
-        setPendingError(getApiErrorMessage(fallbackErr, "Pending queue alinamadi."));
+        setPendingError(getApiErrorMessage(fallbackErr, "Bekleyen mail kuyruğu alınamadı."));
       }
     } finally {
       setPendingLoading(false);
@@ -2060,7 +2070,7 @@ function MailAutomationPage() {
         setCandidateTotalPages(0);
         setCandidateTotalElements(0);
         setCandidatesError(
-          getApiErrorMessage(fallbackErr, "Reminder adaylari alinamadi.")
+          getApiErrorMessage(fallbackErr, "Hatırlatma adayları alınamadı.")
         );
       }
     } finally {
@@ -2103,7 +2113,7 @@ function MailAutomationPage() {
         setRespondentTotalPages(0);
         setRespondentTotalElements(0);
         setRespondentsError(
-          getApiErrorMessage(fallbackErr, "Katilimcilar alinamadi.")
+          getApiErrorMessage(fallbackErr, "Katılımcılar alınamadı.")
         );
       }
     } finally {
@@ -2312,7 +2322,7 @@ function MailAutomationPage() {
         }
       } catch (err) {
         if (!isCancelled) {
-          setPageError(getApiErrorMessage(err, "Anket detayi alinamadi."));
+          setPageError(getApiErrorMessage(err, "Anket detayı alınamadı."));
         }
       } finally {
         if (!isCancelled) {
@@ -2346,7 +2356,7 @@ function MailAutomationPage() {
     return (
       <div style={styles.pageWrapper}>
         <div style={styles.panel}>
-          <div style={styles.statusBox}>Yukleniyor...</div>
+          <div style={styles.statusBox}>Yükleniyor...</div>
         </div>
       </div>
     );
@@ -2375,22 +2385,16 @@ function MailAutomationPage() {
           <div style={styles.headerRight}>
             <button
               style={styles.topButton}
-              onClick={() => navigate(`/admin/surveys/${surveyId}`)}
-            >
-              Anket Detayina Don
-            </button>
-            <button
-              style={styles.topButton}
               onClick={() => navigate("/admin/surveys")}
             >
-              Anket Listesine Don
+              Anket Listesine Dön
             </button>
             <button
               type="button"
               style={styles.logoutButton}
-              onClick={handleLogout}
-              aria-label="Cikis Yap"
-              title="Cikis Yap"
+              onClick={requestLogout}
+              aria-label="Çıkış Yap"
+              title="Çıkış Yap"
             >
               <LogoutIcon />
             </button>
@@ -2406,7 +2410,7 @@ function MailAutomationPage() {
           <div style={styles.container}>
             <div style={styles.heroCard}>
               <div>
-                <div style={styles.kicker}>Survey ID {surveyId}</div>
+                <div style={styles.kicker}>Anket ID {surveyId}</div>
                 <h1 style={styles.title}>{surveyTitle}</h1>
               </div>
               <button
@@ -2414,7 +2418,7 @@ function MailAutomationPage() {
                 style={styles.secondaryButton}
                 onClick={refreshMailData}
               >
-                Tumunu Yenile
+                Tümünü Yenile
               </button>
             </div>
 
@@ -2493,6 +2497,7 @@ function MailAutomationPage() {
           </div>
         </div>
       </div>
+      {logoutConfirmDialog}
     </div>
   );
 }
@@ -2542,8 +2547,9 @@ const styles = {
     color: COLORS.white,
     border: "none",
     borderRadius: "999px",
-    minHeight: "42px",
-    padding: "0 18px",
+    minHeight: "36px",
+    height: "36px",
+    padding: "0 16px",
     fontSize: "13px",
     fontWeight: 600,
     cursor: "pointer",
@@ -3263,3 +3269,4 @@ const styles = {
 };
 
 export default MailAutomationPage;
+

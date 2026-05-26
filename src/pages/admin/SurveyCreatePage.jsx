@@ -9,8 +9,8 @@ import {
   getSurveyDetail,
   updateSurvey,
 } from "../../api/surveyApi";
-import { clearAuthSession } from "../../auth/session";
 import surveyProLogo from "../../assets/surveypro-logo.png";
+import { useLogoutConfirmation } from "../../hooks/useLogoutConfirmation";
 
 const FONT_FAMILY = '"Poppins", sans-serif';
 
@@ -172,6 +172,10 @@ function createEmptyQuestion(orderNo = 1) {
   };
 }
 
+function isChoiceQuestion(questionType) {
+  return questionType === "MULTI_CHOICE" || questionType === "SINGLE_CHOICE";
+}
+
 function getOrCreateStoredRequestKey() {
   const storedRequestKey = sessionStorage.getItem(
     CREATE_SURVEY_REQUEST_KEY_STORAGE
@@ -223,11 +227,11 @@ function getMediaError(mediaType, mediaUrl) {
 
   if (mediaType === "IMAGE" || mediaType === "VIDEO") {
     if (!trimmedMediaUrl) {
-      return "Medya URL alani zorunludur.";
+      return "Medya URL alanı zorunludur.";
     }
 
     if (!isValidHttpUrl(trimmedMediaUrl)) {
-      return "Medya URL http:// veya https:// ile baslamalidir.";
+      return "Medya URL http:// veya https:// ile başlamalıdır.";
     }
   }
 
@@ -240,11 +244,11 @@ function getMediaError(mediaType, mediaUrl) {
     !VIDEO_URL_REGEX.test(trimmedMediaUrl) &&
     !isYoutubeOrVimeoUrl(trimmedMediaUrl)
   ) {
-    return "Video URL direkt video dosyasi, YouTube veya Vimeo linki olmalidir.";
+    return "Video URL direkt video dosyası, YouTube veya Vimeo linki olmalıdır.";
   }
 
   if (mediaType === "NONE" && trimmedMediaUrl) {
-    return 'Medya tipi "NONE" iken medya URL bos olmalidir.';
+    return 'Medya tipi "NONE" iken medya URL boş olmalıdır.';
   }
 
   return "";
@@ -352,13 +356,13 @@ function SurveyCreatePage() {
 
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("info");
+  const { requestLogout, logoutConfirmDialog } = useLogoutConfirmation(navigate);
 
   const handleLogout = () => {
     if (!isEditMode) {
       clearStoredRequestKey();
     }
-    clearAuthSession();
-    navigate("/login", { replace: true });
+    requestLogout();
   };
 
   useEffect(() => {
@@ -393,6 +397,8 @@ function SurveyCreatePage() {
           : "Poppins";
         setQuestionFontFamily(nextFontFamily);
         setBodyFontFamily(nextFontFamily);
+        setQuestionFontSize(data.questionFontSize ?? 16);
+        setBodyFontSize(data.bodyFontSize ?? 14);
 
         const nextQuestions =
           data.questions?.length > 0
@@ -400,15 +406,14 @@ function SurveyCreatePage() {
                 ...question,
                 mediaType: question.mediaType || "NONE",
                 mediaUrl: question.mediaUrl ?? null,
-                options:
-                  question.questionType === "MULTI_CHOICE"
-                    ? (question.options || []).map((option, index) => ({
-                        ...option,
-                        orderNo: option.orderNo ?? index + 1,
-                        mediaType: option.mediaType || "NONE",
-                        mediaUrl: option.mediaUrl ?? null,
-                      }))
-                    : question.options || [],
+                options: isChoiceQuestion(question.questionType)
+                  ? (question.options || []).map((option, index) => ({
+                      ...option,
+                      orderNo: option.orderNo ?? index + 1,
+                      mediaType: option.mediaType || "NONE",
+                      mediaUrl: option.mediaUrl ?? null,
+                    }))
+                  : question.options || [],
               }))
             : [createEmptyQuestion()];
 
@@ -418,7 +423,7 @@ function SurveyCreatePage() {
       } catch (err) {
         console.error(err);
         if (!isCancelled) {
-          setMessage(getApiErrorMessage(err, "Anket detayi alinamadi."));
+          setMessage(getApiErrorMessage(err, "Anket detayı alınamadı."));
           setMessageType("error");
         }
       } finally {
@@ -454,13 +459,13 @@ function SurveyCreatePage() {
     const updated = [...questions];
     updated[index][field] = value;
 
-    if (field === "questionType" && value !== "MULTI_CHOICE") {
+    if (field === "questionType" && !isChoiceQuestion(value)) {
       updated[index].options = [];
     }
 
     if (
       field === "questionType" &&
-      value === "MULTI_CHOICE" &&
+      isChoiceQuestion(value) &&
       updated[index].options.length === 0
     ) {
       updated[index].options = [
@@ -645,13 +650,13 @@ function SurveyCreatePage() {
       normalizedEndDate &&
       new Date(normalizedStartDate) > new Date(normalizedEndDate)
     ) {
-      setMessage("Baslangic tarihi bitis tarihinden sonra olamaz.");
+      setMessage("Başlangıç tarihi bitiş tarihinden sonra olamaz.");
       setMessageType("error");
       return;
     }
 
     if (normalizedEndDate && new Date(normalizedEndDate) < new Date()) {
-      setMessage("Bitis tarihi gecmiste olamaz.");
+      setMessage("Bitiş tarihi geçmişte olamaz.");
       setMessageType("error");
       return;
     }
@@ -661,7 +666,7 @@ function SurveyCreatePage() {
       !HEX_COLOR_REGEX.test(backgroundColor) ||
       !HEX_COLOR_REGEX.test(buttonColor)
     ) {
-      setMessage("Tema renkleri #RRGGBB formatinda olmalidir.");
+      setMessage("Tema renkleri #RRGGBB formatında olmalıdır.");
       setMessageType("error");
       return;
     }
@@ -697,6 +702,8 @@ function SurveyCreatePage() {
       backgroundColor,
       buttonColor,
       fontFamily: bodyFontFamily,
+      questionFontSize,
+      bodyFontSize,
       targetCount: Number(targetCount),
       isActive,
       questions: normalizedQuestions,
@@ -705,20 +712,20 @@ function SurveyCreatePage() {
     try {
       if (isEditMode) {
         await updateSurvey(surveyId, body);
-        setMessage("Anket basariyla guncellendi.");
+        setMessage("Anket başarıyla güncellendi.");
         setMessageType("success");
       } else {
         await createSurvey({
           requestKey,
           ...body,
         });
-        setMessage("Anket basariyla olusturuldu.");
+        setMessage("Anket başarıyla oluşturuldu.");
         setMessageType("success");
         resetForm();
       }
     } catch (err) {
       console.error(err);
-      setMessage(getApiErrorMessage(err, "Hata olustu."));
+      setMessage(getApiErrorMessage(err, "Hata oluştu."));
       setMessageType("error");
     } finally {
       setSaving(false);
@@ -729,7 +736,7 @@ function SurveyCreatePage() {
     return (
       <div style={styles.pageWrapper}>
         <div style={styles.panel}>
-          <div style={styles.statusBox}>Yukleniyor...</div>
+          <div style={styles.statusBox}>Yükleniyor...</div>
         </div>
       </div>
     );
@@ -832,14 +839,14 @@ function SurveyCreatePage() {
                 navigate("/admin/surveys");
               }}
             >
-              Anket Listesine Don
+              Anket Listesine Dön
             </button>
             <button
               type="button"
               style={styles.logoutButton}
               onClick={handleLogout}
-              aria-label="Cikis Yap"
-              title="Cikis Yap"
+              aria-label="Çıkış Yap"
+              title="Çıkış Yap"
             >
               <LogoutIcon />
             </button>
@@ -852,10 +859,10 @@ function SurveyCreatePage() {
               ...styles.tabText,
               color: safeThemeColor,
               fontFamily: liveFontFamily,
-              fontSize: `${Math.max(13, bodyFontSize)}px`,
+              fontSize: "13px",
             }}
           >
-            {isEditMode ? "Anket Duzenle" : "Yeni Anket"}
+            {isEditMode ? "Anketi Düzenle" : "Yeni Anket"}
           </div>
           <div
             style={{
@@ -1021,32 +1028,32 @@ function SurveyCreatePage() {
         >
           <div style={styles.formWrapper}>
             <div style={styles.infoCard}>
-              <label style={styles.fieldLabel}>Anket Basligi</label>
+              <label style={styles.fieldLabel}>Anket Başlığı</label>
               <input
                 style={{ ...styles.underlinedInput, ...liveTextStyle }}
                 type="text"
-                placeholder="Anket Basligini Giriniz"
+                placeholder="Anket Başlığını Giriniz"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
               />
             </div>
 
             <div style={styles.infoCard}>
-              <label style={styles.fieldLabel}>Anket Aciklamasi</label>
+              <label style={styles.fieldLabel}>Anket Açıklaması</label>
               <textarea
                 style={{ ...styles.underlinedTextarea, ...liveTextStyle }}
-                placeholder="Anket Aciklamasini Giriniz"
+                placeholder="Anket Açıklamasını Giriniz"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
               />
             </div>
 
             <div style={styles.infoCard}>
-              <label style={styles.fieldLabel}>Hedef Kisi Sayisi</label>
+              <label style={styles.fieldLabel}>Hedef Kişi Sayısı</label>
               <input
                 style={{ ...styles.underlinedInput, ...liveTextStyle }}
                 type="number"
-                placeholder="Hedef Kisi Sayisi"
+                placeholder="Hedef Kişi Sayısı"
                 value={targetCount}
                 onChange={(e) => setTargetCount(e.target.value)}
               />
@@ -1056,7 +1063,7 @@ function SurveyCreatePage() {
               <label style={styles.fieldLabel}>Anket Tarihleri</label>
               <div style={styles.splitFieldRow}>
                 <div style={styles.splitField}>
-                  <span style={styles.helperLabel}>Baslangic</span>
+                  <span style={styles.helperLabel}>Başlangıç</span>
                   <input
                     style={{ ...styles.underlinedInput, ...liveTextStyle }}
                     type="datetime-local"
@@ -1065,7 +1072,7 @@ function SurveyCreatePage() {
                   />
                 </div>
                 <div style={styles.splitField}>
-                  <span style={styles.helperLabel}>Bitis</span>
+                  <span style={styles.helperLabel}>Bitiş</span>
                   <input
                     style={{ ...styles.underlinedInput, ...liveTextStyle }}
                     type="datetime-local"
@@ -1078,7 +1085,7 @@ function SurveyCreatePage() {
 
             <div style={styles.infoCard}>
               <div style={styles.activeRow}>
-                <label style={styles.fieldLabel}>Anket Aktifligi</label>
+                <label style={styles.fieldLabel}>Anket Aktifliği</label>
                 <label style={styles.switch}>
                   <input
                     type="checkbox"
@@ -1150,13 +1157,14 @@ function SurveyCreatePage() {
                     }
                   >
                     <option value="TEXT">Metin</option>
-                    <option value="MULTI_CHOICE">Coktan Secmeli</option>
-                    <option value="YES_NO">Evet / Hayir</option>
+                    <option value="SINGLE_CHOICE">Tek Seçimli</option>
+                    <option value="MULTI_CHOICE">Çoktan Seçmeli</option>
+                    <option value="YES_NO">Evet / Hayır</option>
                     <option value="RATING">Puanlama</option>
                   </select>
                 </div>
 
-                {question.questionType === "MULTI_CHOICE" && (
+                {isChoiceQuestion(question.questionType) && (
                   <div style={styles.optionsArea}>
                     {question.options.map((option, optionIndex) => (
                       <div key={optionIndex} style={styles.optionBlock}>
@@ -1165,7 +1173,7 @@ function SurveyCreatePage() {
                         <input
                           style={{ ...styles.optionInput, ...liveTextStyle }}
                           type="text"
-                          placeholder={`Secenek ${optionIndex + 1}`}
+                          placeholder={`Seçenek ${optionIndex + 1}`}
                           value={option.optionText}
                           onChange={(e) =>
                             updateOptionField(
@@ -1183,8 +1191,8 @@ function SurveyCreatePage() {
                             e.stopPropagation();
                             addOption(questionIndex);
                           }}
-                          title="Secenek Ekle"
-                          aria-label="Secenek Ekle"
+                          title="Seçenek Ekle"
+                          aria-label="Seçenek Ekle"
                         >
                           <svg
                             width="16"
@@ -1215,8 +1223,8 @@ function SurveyCreatePage() {
                             removeOption(questionIndex, optionIndex);
                           }}
                           disabled={question.options.length === 1}
-                          title="Secenegi Sil"
-                          aria-label="Secenegi Sil"
+                          title="Seçeneği Sil"
+                          aria-label="Seçeneği Sil"
                         >
                           <svg
                             width="16"
@@ -1338,7 +1346,7 @@ function SurveyCreatePage() {
                           clearQuestionMedia(question.orderNo);
                         }}
                       >
-                        Medyayi Kaldir
+                        Medyayı Kaldır
                       </button>
                     </div>
                     <input
@@ -1414,7 +1422,7 @@ function SurveyCreatePage() {
                         />
                       </svg>
                     </button>
-                    <span style={styles.requiredText}>Required</span>
+                    <span style={styles.requiredText}>Zorunlu</span>
                     <label style={styles.switch}>
                       <input
                         type="checkbox"
@@ -1510,7 +1518,7 @@ function SurveyCreatePage() {
                 {saving
                   ? "Kaydediliyor..."
                   : isEditMode
-                    ? "Anketi Guncelle"
+                    ? "Anketi Güncelle"
                     : "Anketi Kaydet"}
               </button>
             </div>
@@ -1528,6 +1536,7 @@ function SurveyCreatePage() {
           </div>
         </div>
       </div>
+      {logoutConfirmDialog}
     </div>
   );
 }
@@ -1604,12 +1613,12 @@ const styles = {
     color: "#FFFFFF",
     border: "none",
     borderRadius: "999px",
-    minHeight: "42px",
-    padding: "0 20px",
+    minHeight: "36px",
+    padding: "0 16px",
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
-    height: "42px",
+    height: "36px",
     fontSize: "13px",
     fontWeight: 600,
     cursor: "pointer",
@@ -2364,3 +2373,4 @@ const styles = {
 };
 
 export default SurveyCreatePage;
+

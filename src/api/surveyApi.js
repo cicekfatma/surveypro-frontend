@@ -37,6 +37,20 @@ export async function updateSurvey(surveyId, payload) {
   return data;
 }
 
+export async function archiveSurvey(surveyId) {
+  const { data } = await axiosInstance.patch(
+    `/admin/surveys/${surveyId}/archive`
+  );
+  return data;
+}
+
+export async function activateSurvey(surveyId) {
+  const { data } = await axiosInstance.patch(
+    `/admin/surveys/${surveyId}/activate`
+  );
+  return data;
+}
+
 export async function getSurveyDetail(surveyId) {
   const { data } = await axiosInstance.get(`/admin/surveys/${surveyId}`);
   return data;
@@ -50,6 +64,22 @@ export async function getSurveyResults(surveyId) {
 export async function getRespondentResults(surveyId) {
   const { data } = await axiosInstance.get(
     `/admin/surveys/${surveyId}/responses`
+  );
+  return data;
+}
+
+export async function exportRespondentResultsCsv(surveyId) {
+  const { data } = await axiosInstance.get(
+    `/admin/surveys/${surveyId}/export/respondents.csv`,
+    { responseType: "blob" }
+  );
+  return data;
+}
+
+export async function exportQuestionSummaryCsv(surveyId) {
+  const { data } = await axiosInstance.get(
+    `/admin/surveys/${surveyId}/export/questions.csv`,
+    { responseType: "blob" }
   );
   return data;
 }

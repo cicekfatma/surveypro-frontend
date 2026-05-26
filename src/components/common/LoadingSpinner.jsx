@@ -1,4 +1,4 @@
-function LoadingSpinner({ label = "Yukleniyor..." }) {
+function LoadingSpinner({ label = "Yükleniyor..." }) {
   return <div style={styles.wrapper}>{label}</div>;
 }
 
@@ -11,3 +11,4 @@ const styles = {
 };
 
 export default LoadingSpinner;
+

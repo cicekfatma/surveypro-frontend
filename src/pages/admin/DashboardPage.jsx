@@ -5,8 +5,8 @@ import {
   getSurveyDashboard,
   getSurveyDailyStats,
 } from "../../api/surveyApi";
-import { clearAuthSession } from "../../auth/session";
 import surveyProLogo from "../../assets/surveypro-logo.png";
+import { useLogoutConfirmation } from "../../hooks/useLogoutConfirmation";
 import {
   Bar,
   ComposedChart,
@@ -99,11 +99,7 @@ function DashboardPage() {
   const [dailyStatsError, setDailyStatsError] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
-  const handleLogout = () => {
-    clearAuthSession();
-    navigate("/login", { replace: true });
-  };
+  const { requestLogout, logoutConfirmDialog } = useLogoutConfirmation(navigate);
 
   useEffect(() => {
     const fetchDashboard = async () => {
@@ -123,13 +119,13 @@ function DashboardPage() {
           setDailyStatsError(
             getApiErrorMessage(
               dailyStatsRequestError,
-              "Gunluk istatistikler su anda alinamiyor."
+              "Günlük istatistikler şu anda alınamıyor."
             )
           );
         }
       } catch (err) {
         console.error(err);
-        setError(getApiErrorMessage(err, "Dashboard alinamadi"));
+        setError(getApiErrorMessage(err, "Panel alınamadı"));
       } finally {
         setLoading(false);
       }
@@ -142,7 +138,7 @@ function DashboardPage() {
     return (
       <div style={styles.pageWrapper}>
         <div style={styles.panel}>
-          <div style={styles.statusBox}>Yukleniyor...</div>
+          <div style={styles.statusBox}>Yükleniyor...</div>
         </div>
       </div>
     );
@@ -164,24 +160,24 @@ function DashboardPage() {
     return (
       <div style={styles.pageWrapper}>
         <div style={styles.panel}>
-          <div style={styles.statusBox}>Dashboard bulunamadi.</div>
+          <div style={styles.statusBox}>Panel bulunamadı.</div>
         </div>
       </div>
     );
   }
 
   const cards = [
-    { title: "Hedef Kisi Sayisi", value: dashboard.targetCount },
-    { title: "Ulasilan Kisi", value: dashboard.reachedCount },
-    { title: "Anketi Acan", value: dashboard.openedCount },
+    { title: "Hedef Kişi Sayısı", value: dashboard.targetCount },
+    { title: "Ulaşılan Kişi", value: dashboard.reachedCount },
+    { title: "Anketi Açan", value: dashboard.openedCount },
     { title: "Anketi Tamamlayan", value: dashboard.submittedCount },
-    { title: "Acilma Orani", value: formatPercentage(dashboard.openRate) },
+    { title: "Açılma Oranı", value: formatPercentage(dashboard.openRate) },
     {
-      title: "Cevaplanma Orani",
+      title: "Cevaplanma Oranı",
       value: formatPercentage(dashboard.responseRate),
     },
-    { title: "Acmayan Kisi", value: dashboard.notOpenedCount },
-    { title: "Tamamlamayan Kisi", value: dashboard.notSubmittedCount },
+    { title: "Açmayan Kişi", value: dashboard.notOpenedCount },
+    { title: "Tamamlamayan Kişi", value: dashboard.notSubmittedCount },
   ];
 
   return (
@@ -198,14 +194,14 @@ function DashboardPage() {
               style={styles.topButton}
               onClick={() => navigate("/admin/surveys")}
             >
-              Anket Listesine Don
+              Anket Listesine Dön
             </button>
             <button
               type="button"
               style={styles.logoutButton}
-              onClick={handleLogout}
-              aria-label="Cikis Yap"
-              title="Cikis Yap"
+              onClick={requestLogout}
+              aria-label="Çıkış Yap"
+              title="Çıkış Yap"
             >
               <LogoutIcon />
             </button>
@@ -213,7 +209,7 @@ function DashboardPage() {
         </div>
 
         <div style={styles.tabHeader}>
-          <div style={styles.tabText}>Dashboard</div>
+          <div style={styles.tabText}>Panel</div>
           <div style={styles.tabUnderline} />
         </div>
 
@@ -230,7 +226,7 @@ function DashboardPage() {
               </div>
             </div>
 
-            <div style={styles.sectionHeader}>Dashboard Ozeti</div>
+            <div style={styles.sectionHeader}>Panel Özeti</div>
 
             <div style={styles.grid}>
               {cards.map((card, index) => (
@@ -242,7 +238,7 @@ function DashboardPage() {
             </div>
 
             <div style={styles.chartSection}>
-              <div style={styles.sectionHeader}>Gunluk Istatistikler</div>
+              <div style={styles.sectionHeader}>Günlük İstatistikler</div>
 
               <div style={styles.chartCard}>
                 {dailyStatsError && (
@@ -253,7 +249,7 @@ function DashboardPage() {
 
                 {dailyStats.length === 0 ? (
                   <div style={styles.emptyChartText}>
-                    Henuz gunluk istatistik verisi yok.
+                    Henüz günlük istatistik verisi yok.
                   </div>
                 ) : (
                   <div style={styles.chartWrapper}>
@@ -278,7 +274,7 @@ function DashboardPage() {
                           stroke="#616371"
                         >
                           <Label
-                            value="Acilma"
+                            value="Açılma"
                             angle={-90}
                             position="insideLeft"
                             style={styles.leftAxisLabel}
@@ -302,7 +298,7 @@ function DashboardPage() {
                         <Legend />
                         <Bar
                           dataKey="openedCount"
-                          name="Acilma"
+                          name="Açılma"
                           fill={COLORS.primary}
                           radius={[6, 6, 0, 0]}
                           barSize={24}
@@ -326,6 +322,7 @@ function DashboardPage() {
           </div>
         </div>
       </div>
+      {logoutConfirmDialog}
     </div>
   );
 }
@@ -382,8 +379,9 @@ const styles = {
     color: "#FFFFFF",
     border: "none",
     borderRadius: "999px",
-    minHeight: "42px",
-    padding: "0 20px",
+    minHeight: "36px",
+    height: "36px",
+    padding: "0 16px",
     fontSize: "13px",
     fontWeight: 600,
     cursor: "pointer",
@@ -614,3 +612,4 @@ const styles = {
 };
 
 export default DashboardPage;
+

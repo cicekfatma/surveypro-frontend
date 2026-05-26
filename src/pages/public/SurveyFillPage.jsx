@@ -79,6 +79,8 @@ function getSurveyTheme(survey) {
     backgroundColor: survey?.backgroundColor || COLORS.background,
     buttonColor: survey?.buttonColor || COLORS.primary,
     fontFamily: survey?.fontFamily || "Poppins",
+    questionFontSize: survey?.questionFontSize || 18,
+    bodyFontSize: survey?.bodyFontSize || 14,
   };
 }
 
@@ -142,6 +144,16 @@ function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
+function isInactiveSurveyError(error) {
+  const message = String(
+    error?.response?.data?.message || error?.response?.data?.error || ""
+  )
+    .trim()
+    .toLowerCase();
+
+  return message === "survey is not active";
+}
+
 function isQuestionAnswered(question, answer) {
   if (!answer) return false;
 
@@ -178,6 +190,7 @@ function SurveyFillPage({ publicKey, respondentTokenFromUrl = "", onBack }) {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("info");
+  const [isSurveyInactive, setIsSurveyInactive] = useState(false);
 
   useEffect(() => {
     const fetchPublicSurvey = async () => {
@@ -201,7 +214,13 @@ function SurveyFillPage({ publicKey, respondentTokenFromUrl = "", onBack }) {
         }
       } catch (err) {
         console.error(err);
-        setMessage(getApiErrorMessage(err, "Anket yuklenemedi."));
+        if (isInactiveSurveyError(err)) {
+          setIsSurveyInactive(true);
+          setMessage("");
+          return;
+        }
+
+        setMessage(getApiErrorMessage(err, "Anket yüklenemedi."));
         setMessageType("error");
       } finally {
         setLoading(false);
@@ -361,11 +380,11 @@ function SurveyFillPage({ publicKey, respondentTokenFromUrl = "", onBack }) {
         localStorage.setItem(storageKey, response.respondentToken);
       }
 
-      setMessage(response?.message || "Cevabiniz basariyla kaydedildi.");
+      setMessage(response?.message || "Cevabınız başarıyla kaydedildi.");
       setMessageType("success");
     } catch (err) {
       console.error(err);
-      setMessage(getApiErrorMessage(err, "Hata olustu."));
+      setMessage(getApiErrorMessage(err, "Hata oluştu."));
       setMessageType("error");
     } finally {
       setSaving(false);
@@ -373,10 +392,60 @@ function SurveyFillPage({ publicKey, respondentTokenFromUrl = "", onBack }) {
   };
 
   if (loading) {
-    return <h2 style={{ padding: "20px" }}>Yukleniyor...</h2>;
+    return <h2 style={{ padding: "20px" }}>Yükleniyor...</h2>;
   }
 
   if (!survey) {
+    if (isSurveyInactive) {
+      return (
+        <div style={styles.inactivePageWrapper}>
+          <div style={styles.panel}>
+            <div style={styles.header}>
+              <div style={styles.brandArea}>
+                <img
+                  src={surveyProLogo}
+                  alt="SurveyPro logo"
+                  style={styles.logo}
+                />
+              </div>
+
+              <div style={styles.headerRight}>
+                {onBack && (
+                  <button style={styles.inactiveTopButton} onClick={onBack}>
+                    Geri Dön
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div style={styles.tabHeader}>
+              <div style={styles.tabText}>Public Test</div>
+              <div style={styles.tabUnderline} />
+            </div>
+          </div>
+
+          <main style={styles.inactiveContentArea}>
+            <section style={styles.inactiveCard} role="status">
+              <div style={styles.inactiveIcon} aria-hidden="true">
+                !
+              </div>
+              <p style={styles.inactiveEyebrow}>Anket kapalı</p>
+              <h1 style={styles.inactiveTitle}>Bu anket şu anda aktif değil.</h1>
+              <p style={styles.inactiveText}>
+                Yeni cevap kabul edilmiyor. Anket tekrar aktif hale getirildiginde
+                bu bağlantı üzerinden devam edebilirsiniz.
+              </p>
+              {onBack && (
+                <button style={styles.inactiveActionButton} onClick={onBack}>
+                  Anketlere Dön
+                </button>
+              )}
+            </section>
+          </main>
+        </div>
+      );
+    }
+
     return (
       <div style={{ padding: "20px", fontFamily: FONT_FAMILY }}>
         {message ? (
@@ -386,7 +455,7 @@ function SurveyFillPage({ publicKey, respondentTokenFromUrl = "", onBack }) {
             ))}
           </div>
         ) : (
-          <h2>Anket bulunamadi.</h2>
+          <h2>Anket bulunamadı.</h2>
         )}
       </div>
     );
@@ -394,7 +463,17 @@ function SurveyFillPage({ publicKey, respondentTokenFromUrl = "", onBack }) {
 
   const surveyTheme = getSurveyTheme(survey);
   const themedFontFamily = getFontStack(surveyTheme.fontFamily);
-  const themedTextStyle = { fontFamily: themedFontFamily };
+  const themedTextStyle = {
+    fontFamily: themedFontFamily,
+  };
+  const themedBodyTextStyle = {
+    fontFamily: themedFontFamily,
+    fontSize: `${surveyTheme.bodyFontSize}px`,
+  };
+  const themedQuestionStyle = {
+    fontFamily: themedFontFamily,
+    fontSize: `${surveyTheme.questionFontSize}px`,
+  };
 
   return (
     <div
@@ -420,17 +499,14 @@ function SurveyFillPage({ publicKey, respondentTokenFromUrl = "", onBack }) {
               <button
                 style={{
                   ...styles.topButton,
-                  backgroundColor: surveyTheme.buttonColor,
+                  backgroundColor: COLORS.primary,
                   fontFamily: themedFontFamily,
                 }}
                 onClick={onBack}
               >
-                Geri Don
+                Geri Dön
               </button>
             )}
-            <button style={styles.menuButton} aria-label="Menu">
-              &#8942;
-            </button>
           </div>
         </div>
 
@@ -464,17 +540,17 @@ function SurveyFillPage({ publicKey, respondentTokenFromUrl = "", onBack }) {
             >
               {survey.title}
             </h1>
-            <p style={{ ...styles.description, ...themedTextStyle }}>
+            <p style={{ ...styles.description, ...themedBodyTextStyle }}>
               {survey.description}
             </p>
           </div>
 
           <div style={styles.mainCard}>
-            <label style={{ ...styles.label, ...themedTextStyle }}>
+            <label style={{ ...styles.label, ...themedBodyTextStyle }}>
               E-posta
             </label>
             <input
-              style={{ ...styles.input, ...themedTextStyle }}
+              style={{ ...styles.input, ...themedBodyTextStyle }}
               type="email"
               placeholder="E-posta adresinizi girin"
               value={email}
@@ -487,7 +563,7 @@ function SurveyFillPage({ publicKey, respondentTokenFromUrl = "", onBack }) {
               <h3
                 style={{
                   ...styles.questionTitle,
-                  ...themedTextStyle,
+                  ...themedQuestionStyle,
                   color: surveyTheme.themeColor,
                 }}
               >
@@ -544,8 +620,8 @@ function SurveyFillPage({ publicKey, respondentTokenFromUrl = "", onBack }) {
 
               {question.questionType === "TEXT" && (
                 <textarea
-                  style={{ ...styles.textarea, ...themedTextStyle }}
-                  placeholder="Cevabinizi yazin"
+                  style={{ ...styles.textarea, ...themedBodyTextStyle }}
+                  placeholder="Cevabınızı yazın"
                   value={answers[question.id]?.answerText || ""}
                   onChange={(e) => handleTextChange(question.id, e.target.value)}
                 />
@@ -556,7 +632,7 @@ function SurveyFillPage({ publicKey, respondentTokenFromUrl = "", onBack }) {
                   {question.options?.map((option) => (
                     <label
                       key={option.id}
-                      style={{ ...styles.optionLabel, ...themedTextStyle }}
+                      style={{ ...styles.optionLabel, ...themedBodyTextStyle }}
                     >
                       <input
                         type="radio"
@@ -580,7 +656,7 @@ function SurveyFillPage({ publicKey, respondentTokenFromUrl = "", onBack }) {
                   {question.options?.map((option) => (
                     <label
                       key={option.id}
-                      style={{ ...styles.optionLabel, ...themedTextStyle }}
+                      style={{ ...styles.optionLabel, ...themedBodyTextStyle }}
                     >
                       <input
                         type="checkbox"
@@ -607,7 +683,7 @@ function SurveyFillPage({ publicKey, respondentTokenFromUrl = "", onBack }) {
 
               {question.questionType === "YES_NO" && (
                 <div style={styles.optionGroup}>
-                  <label style={{ ...styles.optionLabel, ...themedTextStyle }}>
+                  <label style={{ ...styles.optionLabel, ...themedBodyTextStyle }}>
                     <input
                       type="radio"
                       name={`question-${question.id}`}
@@ -616,14 +692,14 @@ function SurveyFillPage({ publicKey, respondentTokenFromUrl = "", onBack }) {
                     />
                     <span>Evet</span>
                   </label>
-                  <label style={{ ...styles.optionLabel, ...themedTextStyle }}>
+                  <label style={{ ...styles.optionLabel, ...themedBodyTextStyle }}>
                     <input
                       type="radio"
                       name={`question-${question.id}`}
                       checked={answers[question.id]?.boolValue === false}
                       onChange={() => handleYesNoChange(question.id, false)}
                     />
-                    <span>Hayir</span>
+                    <span>Hayır</span>
                   </label>
                 </div>
               )}
@@ -665,7 +741,7 @@ function SurveyFillPage({ publicKey, respondentTokenFromUrl = "", onBack }) {
               onClick={handleSubmit}
               disabled={saving}
             >
-              {saving ? "Gonderiliyor..." : "Anketi Gonder"}
+              {saving ? "Gönderiliyor..." : "Anketi Gönder"}
             </button>
           </div>
 
@@ -677,7 +753,7 @@ function SurveyFillPage({ publicKey, respondentTokenFromUrl = "", onBack }) {
                 ))}
               </div>
             ) : (
-              <p style={{ ...styles.message, ...themedTextStyle }}>
+              <p style={{ ...styles.message, ...themedBodyTextStyle }}>
                 {message}
               </p>
             ))}
@@ -755,32 +831,18 @@ const styles = {
     backgroundColor: COLORS.orange,
     color: "#FFFFFF",
     border: "none",
-    borderRadius: "7px",
+    borderRadius: "999px",
     padding: "0 16px",
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
+    minHeight: "36px",
     height: "36px",
-    fontSize: "12px",
+    fontSize: "13px",
     fontWeight: 600,
     cursor: "pointer",
     lineHeight: 1,
     fontFamily: FONT_FAMILY,
-  },
-  menuButton: {
-    border: "none",
-    background: "transparent",
-    color: COLORS.text,
-    fontSize: "22px",
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    cursor: "pointer",
-    lineHeight: 1,
-    height: "36px",
-    width: "24px",
-    padding: 0,
-    fontWeight: 700,
   },
   contentArea: {
     backgroundColor: COLORS.background,
@@ -910,12 +972,15 @@ const styles = {
   },
   ratingButton: {
     border: `1px solid ${COLORS.border}`,
-    borderRadius: "10px",
+    borderRadius: "999px",
     backgroundColor: "#fff",
     color: COLORS.text,
-    padding: "10px 14px",
+    minWidth: "36px",
+    minHeight: "36px",
+    padding: "0 12px",
     cursor: "pointer",
     fontWeight: 700,
+    fontSize: "13px",
     fontFamily: FONT_FAMILY,
   },
   ratingButtonActive: {
@@ -962,11 +1027,13 @@ const styles = {
   },
   submitButton: {
     border: "none",
-    borderRadius: "12px",
+    borderRadius: "999px",
     backgroundColor: COLORS.primary,
     color: "#fff",
-    padding: "14px 22px",
-    fontWeight: 700,
+    minHeight: "36px",
+    padding: "0 18px",
+    fontSize: "13px",
+    fontWeight: 600,
     cursor: "pointer",
     fontFamily: FONT_FAMILY,
   },
@@ -989,6 +1056,97 @@ const styles = {
     lineHeight: 1.5,
     fontFamily: FONT_FAMILY,
   },
+  inactivePageWrapper: {
+    minHeight: "100vh",
+    backgroundColor: COLORS.background,
+    fontFamily: FONT_FAMILY,
+  },
+  inactiveContentArea: {
+    minHeight: "calc(100vh - 96px)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "24px 20px 60px",
+    boxSizing: "border-box",
+  },
+  inactiveCard: {
+    width: "100%",
+    maxWidth: "520px",
+    backgroundColor: COLORS.white,
+    border: "1px solid #E4E4E7",
+    borderRadius: "8px",
+    padding: "30px 28px",
+    boxShadow: COLORS.shadow,
+    textAlign: "center",
+    boxSizing: "border-box",
+  },
+  inactiveIcon: {
+    width: "44px",
+    height: "44px",
+    borderRadius: "999px",
+    margin: "0 auto 16px",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFF4E5",
+    color: "#B54708",
+    fontSize: "24px",
+    fontWeight: 800,
+    lineHeight: 1,
+  },
+  inactiveEyebrow: {
+    margin: "0 0 8px",
+    color: COLORS.orange,
+    fontSize: "13px",
+    fontWeight: 800,
+    textTransform: "uppercase",
+    letterSpacing: "0",
+  },
+  inactiveTitle: {
+    margin: "0 0 12px",
+    color: COLORS.primary,
+    fontSize: "26px",
+    lineHeight: 1.25,
+    fontWeight: 800,
+    letterSpacing: "0",
+  },
+  inactiveText: {
+    margin: 0,
+    color: COLORS.text,
+    fontSize: "15px",
+    lineHeight: 1.6,
+  },
+  inactiveActionButton: {
+    marginTop: "22px",
+    border: "none",
+    borderRadius: "999px",
+    backgroundColor: COLORS.primary,
+    color: "#FFFFFF",
+    minHeight: "36px",
+    padding: "0 16px",
+    fontSize: "13px",
+    fontWeight: 600,
+    cursor: "pointer",
+    fontFamily: FONT_FAMILY,
+  },
+  inactiveTopButton: {
+    backgroundColor: COLORS.primary,
+    color: "#FFFFFF",
+    border: "none",
+    borderRadius: "999px",
+    padding: "0 16px",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: "36px",
+    height: "36px",
+    fontSize: "13px",
+    fontWeight: 600,
+    cursor: "pointer",
+    lineHeight: 1,
+    fontFamily: FONT_FAMILY,
+  },
 };
 
 export default SurveyFillPage;
+
